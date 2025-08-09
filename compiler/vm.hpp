@@ -5,31 +5,39 @@
 #include <memory>
 #include <cmath>
 #include <sstream>
+#include <map>
+#include <variant>
+#include <string>
+
 using StringVector = std::vector<std::string>;
-using Abomination = std::vector<std::map<std::string, std::variant<std::string, local_space<StringVector>>>>;
+
+// Forward declare template class so we can use it in typedefs
+template <typename T>
+class local_space;
+
+// Now we can use local_space<StringVector> safely
+using Abomination = std::vector<std::map<std::string, std::variant<StringVector, local_space<StringVector>>>>;
 using localStackType = std::vector<std::map<std::string, std::variant<float, std::string>>>;
 using fnNameIdsType = std::map<std::string, int>;
 using stackType = std::vector<std::variant<float, std::string>>;
 
-StringVector tokenize(std::string &sentence) {
+// Tokenize function (good as-is)
+inline StringVector tokenize(std::string &sentence)
+{
     StringVector words;
     std::istringstream iss(sentence);
     std::string word;
-
-    while (iss >> word) {
+    while (iss >> word)
+    {
         words.push_back(word);
-    };
-
+    }
     return words;
-};
-void eval_function(StringVector &tokens, auto &env)
-void evaluate(std::string &source);
-void evalToken(StringVector &tokens, auto &env);
-void eval_store_local(StringVector&tokens, auto &env);
-void eval_push(StringVector &tokens, auto &env);
-std::string shift(StringVector &tokens);
-std::variant<std::string, float> shiftStack(auto &env);
+}
 
+// Declare functions - you will want to template those if env is templated
+void evaluate(std::string &source);
+
+// local_space template class
 template <typename T>
 class local_space
 {
@@ -40,62 +48,80 @@ public:
     Abomination function_stack;
     std::shared_ptr<local_space<T>> parent_local_space;
 
-    local_space() : parent_local_space(nullptr) {};
-    local_space(std::shared_ptr<local_space<T>> parent) : parent_local_space(parent) {};
+    local_space() : parent_local_space(nullptr) {}
+    local_space(std::shared_ptr<local_space<T>> parent) : parent_local_space(parent) {}
 
-    T pop() {
-        T value = stack.back();
+    std::variant<float, std::string> pop()
+    {
+        if (stack.empty())
+            throw std::runtime_error("Stack underflow");
+        auto value = stack.back();
         stack.pop_back();
         return value;
     }
 
-    void add() {
-        T x = pop();
-        T y = pop();
+    // Helper function to extract float from variant, or throw if wrong type
+    float getFloat(const std::variant<float, std::string> &v)
+    {
+        if (auto pval = std::get_if<float>(&v))
+            return *pval;
+        throw std::runtime_error("Expected float value on stack");
+    }
 
-        T value = x + y;
-        stack.push_back(value);
-    };
+    void add()
+    {
+        auto x = pop();
+        auto y = pop();
+        float result = getFloat(x) + getFloat(y);
+        stack.push_back(result);
+    }
 
-    void sub() {
-        T x = pop();
-        T y = pop();
+    void sub()
+    {
+        auto x = pop();
+        auto y = pop();
+        float result = getFloat(x) - getFloat(y);
+        stack.push_back(result);
+    }
 
-        T value = x - y;
-        stack.push_back(value);
-    };
+    void mul()
+    {
+        auto x = pop();
+        auto y = pop();
+        float result = getFloat(x) * getFloat(y);
+        stack.push_back(result);
+    }
 
-    void mul() {
-        T x = pop();
-        T y = pop();
+    void div()
+    {
+        auto x = pop();
+        auto y = pop();
+        float divisor = getFloat(y);
+        if (divisor == 0.0f)
+            throw std::runtime_error("Division by zero");
+        float result = getFloat(x) / divisor;
+        stack.push_back(result);
+    }
 
-        T value = x * y;
-        stack.push_back(value);
-    };
+    void pow()
+    {
+        auto x = pop();
+        auto y = pop();
+        float result = std::pow(getFloat(x), getFloat(y));
+        stack.push_back(result);
+    }
 
-    void div() {
-        T x = pop();
-        T y = pop();
-
-        T value = x / y;
-        stack.push_back(value);
-    };
-
-    void pow() {
-        T x = pop();
-        T y = pop();
-
-        T value = std::pow(x, y);
-        stack.push_back(value);
-    };
-
-    void mod() {
-        T x = pop();
-        T y = pop();
-
-        T value = x % y;
-        stack.push_back(value);
-    };
+    void mod()
+    {
+        auto x = pop();
+        auto y = pop();
+        int a = static_cast<int>(getFloat(x));
+        int b = static_cast<int>(getFloat(y));
+        if (b == 0)
+            throw std::runtime_error("Modulo by zero");
+        int result = a % b;
+        stack.push_back(static_cast<float>(result));
+    }
 };
 
 #endif
