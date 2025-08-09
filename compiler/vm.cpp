@@ -6,12 +6,6 @@
 #include <cctype>
 #include "prettyprint.hpp"
 
-// Helper operator<< to print std::variant<float, std::string> (for prettyprint)
-std::ostream& operator<<(std::ostream& os, const std::variant<float, std::string>& v) {
-    std::visit([&os](auto&& arg) { os << arg; }, v);
-    return os;
-}
-
 std::string shift(StringVector &tokens)
 {
     std::string value = tokens[0];
@@ -28,7 +22,7 @@ std::variant<float, std::string> shiftStack(local_space<StringVector> &env)
 
 void eval_function(StringVector &tokens, local_space<StringVector> &env)
 {
-    shift(tokens);  // remove 'function' token
+    shift(tokens);
     std::string name = shift(tokens);
 
     StringVector body;
@@ -37,7 +31,8 @@ void eval_function(StringVector &tokens, local_space<StringVector> &env)
         body.push_back(shift(tokens));
     }
 
-    // create function map with body and declaration environment
+    shift(tokens);
+
     std::map<std::string, std::variant<StringVector, local_space<StringVector>>> token{
         {"body", body},
         {"declarationEnv", env}
@@ -49,11 +44,9 @@ void eval_function(StringVector &tokens, local_space<StringVector> &env)
 
 void eval_push(StringVector &tokens, local_space<StringVector> &env)
 {
-    shift(tokens);  // remove "PUSH"
-    std::string val = tokens[0];
-    tokens.erase(tokens.begin());
+    shift(tokens);
+    std::string val = shift(tokens);
 
-    // Convert numeric string to float, else keep as string
     if (!val.empty() && std::all_of(val.begin(), val.end(), ::isdigit))
     {
         env.stack.push_back(std::stof(val));
@@ -66,10 +59,9 @@ void eval_push(StringVector &tokens, local_space<StringVector> &env)
 
 void eval_store_local(StringVector &tokens, local_space<StringVector> &env)
 {
-    shift(tokens);  // remove "STORE_LOCAL"
+    shift(tokens);
     std::string identifier = shift(tokens);
 
-    // Store in local stack
     std::map<std::string, std::variant<float, std::string>> token {
         {identifier, shiftStack(env)}
     };
@@ -112,8 +104,9 @@ void evaluate(std::string &source)
     local_space<StringVector> env;
     StringVector tokens = tokenize(source);
 
-     while (!tokens.empty()) {
-        evalToken(tokens, env);
-     }
-     std::cout << env.stack[0] << std::endl;
+    while (!tokens.empty()) {
+       evalToken(tokens, env);
+    }
+    std::cout << env.local_stack << std::endl;
+    std::cout << "finished" << std::endl;
 }

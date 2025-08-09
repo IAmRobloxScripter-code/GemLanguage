@@ -22,6 +22,11 @@
 #include <utility>
 #include <valarray>
 
+inline std::ostream& operator<<(std::ostream& os, const std::variant<float, std::string>& v) {
+    std::visit([&os](auto&& arg) { os << arg; }, v);
+    return os;
+};
+
 namespace pretty_print
 {
     namespace detail

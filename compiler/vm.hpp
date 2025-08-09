@@ -11,17 +11,14 @@
 
 using StringVector = std::vector<std::string>;
 
-// Forward declare template class so we can use it in typedefs
 template <typename T>
 class local_space;
 
-// Now we can use local_space<StringVector> safely
 using Abomination = std::vector<std::map<std::string, std::variant<StringVector, local_space<StringVector>>>>;
 using localStackType = std::vector<std::map<std::string, std::variant<float, std::string>>>;
 using fnNameIdsType = std::map<std::string, int>;
 using stackType = std::vector<std::variant<float, std::string>>;
 
-// Tokenize function (good as-is)
 inline StringVector tokenize(std::string &sentence)
 {
     StringVector words;
@@ -34,10 +31,8 @@ inline StringVector tokenize(std::string &sentence)
     return words;
 }
 
-// Declare functions - you will want to template those if env is templated
 void evaluate(std::string &source);
 
-// local_space template class
 template <typename T>
 class local_space
 {
@@ -60,7 +55,6 @@ public:
         return value;
     }
 
-    // Helper function to extract float from variant, or throw if wrong type
     float getFloat(const std::variant<float, std::string> &v)
     {
         if (auto pval = std::get_if<float>(&v))

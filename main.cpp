@@ -38,7 +38,8 @@ int main()
     astToken ast = parserInstance.produceAST(s);
     compiler compilerInstance;
     std::string bytecode = compilerInstance.compile(ast);
-
+    
+    std::cout << bytecode << std::endl;
     evaluate(bytecode);
     return 0;
 }
