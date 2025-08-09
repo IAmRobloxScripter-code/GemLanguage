@@ -9,6 +9,23 @@
 #include <variant>
 #include <string>
 
+/*
+  PUSH X
+  STORE_LOCAL X
+  ADD
+  SUB
+  MUL
+  DIV
+  POW
+  MOD
+
+  function ANY
+  RET
+
+  CALL N
+
+*/
+
 using StringVector = std::vector<std::string>;
 
 template <typename T>
