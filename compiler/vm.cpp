@@ -2,6 +2,8 @@
 #include <map>
 #include <variant>
 #include <algorithm>
+#include "prettyprint.hpp"
+#include <iostream>
 
 std::string shift(StringVector &tokens)
 {
@@ -128,4 +130,6 @@ void evaluate(std::string &source)
 {
     local_space<StringVector> env;
     StringVector tokens = tokenize(source);
+
+    std::cout << env.local_stack;
 }

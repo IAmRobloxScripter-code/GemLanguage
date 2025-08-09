@@ -1,4 +1,5 @@
 #include "compiler/compiler.hpp"
+#include "compiler/vm.hpp"
 #include <fstream>
 #include <string>
 #include <iostream>
@@ -38,6 +39,6 @@ int main()
     compiler compilerInstance;
     std::string bytecode = compilerInstance.compile(ast);
 
-    std::cout << bytecode << std::endl;
+    evaluate(bytecode);
     return 0;
 }

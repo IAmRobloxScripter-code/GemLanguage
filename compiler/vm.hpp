@@ -11,8 +11,8 @@ using localStackType = std::vector<std::map<std::string, std::variant<float, std
 using fnNameIdsType = std::map<std::string, int>;
 using stackType = std::vector<std::variant<float, std::string>>;
 
-std::vector<std::string> tokenize(std::string &sentence) {
-    std::vector<std::string> words;
+StringVector tokenize(std::string &sentence) {
+    StringVector words;
     std::istringstream iss(sentence);
     std::string word;
 
@@ -22,8 +22,13 @@ std::vector<std::string> tokenize(std::string &sentence) {
 
     return words;
 };
-void eval_function(std::vector<std::string> &tokens, auto &env)
+void eval_function(StringVector &tokens, auto &env)
 void evaluate(std::string &source);
+void evalToken(StringVector &tokens, auto &env);
+void eval_store_local(StringVector&tokens, auto &env);
+void eval_push(StringVector &tokens, auto &env);
+std::string shift(StringVector &tokens);
+std::variant<std::string, float> shiftStack(auto &env);
 
 template <typename T>
 class local_space
