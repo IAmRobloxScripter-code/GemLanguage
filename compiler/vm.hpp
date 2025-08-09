@@ -36,12 +36,12 @@ using localStackType = std::vector<std::map<std::string, std::variant<float, std
 using fnNameIdsType = std::map<std::string, int>;
 using stackType = std::vector<std::variant<float, std::string>>;
 
-inline StringVector tokenize(std::string &sentence)
+inline StringVector tokenize(std::string &src)
 {
     StringVector words;
-    std::istringstream iss(sentence);
+    std::istringstream str(src);
     std::string word;
-    while (iss >> word)
+    while (str >> word)
     {
         words.push_back(word);
     }
