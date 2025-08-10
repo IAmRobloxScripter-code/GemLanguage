@@ -12,6 +12,7 @@
 /*
   PUSH X
   STORE_LOCAL X
+  LOAD_LOCAL X
   ADD
   SUB
   MUL
@@ -19,7 +20,7 @@
   POW
   MOD
 
-  function ANY
+  function ANY X Y Z :
   RET
 
   CALL N
@@ -32,7 +33,7 @@ template <typename T>
 class local_space;
 
 using Abomination = std::vector<std::map<std::string, std::variant<StringVector, local_space<StringVector>>>>;
-using localStackType = std::vector<std::map<std::string, std::variant<float, std::string>>>;
+using localStackType = std::map<std::string, std::variant<float, std::string>>;
 using fnNameIdsType = std::map<std::string, int>;
 using stackType = std::vector<std::variant<float, std::string>>;
 
@@ -134,5 +135,8 @@ public:
         stack.push_back(static_cast<float>(result));
     }
 };
+
+void evalToken(StringVector &tokens, local_space<StringVector> &env);
+void eval_call(StringVector &tokens, local_space<StringVector> &env);
 
 #endif

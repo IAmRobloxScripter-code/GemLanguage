@@ -17,6 +17,9 @@ class compiler {
         void compile_var_declaration(astToken &node);
         void compile_program(astToken &node);
         void compile_binary_expr(astToken &node);
+        void compile_function_declaration(astToken &node);
+        void compile_call_expr(astToken &node);
+        void compile_identifier(astToken &node);
 };
 
 #endif

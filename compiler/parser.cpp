@@ -7,6 +7,8 @@
 #include <optional>
 #include <map>
 #include <any>
+#include <random>
+#include <bits/chrono.h>
 
 std::vector<lexer_token> tokens;
 astToken parser::produceAST(const std::string &source)
@@ -60,6 +62,8 @@ astToken parser::parseStmt()
     {
     case TokenType::Var:
         return parser::parse_var_declaration();
+    case TokenType::Function:
+        return parser::parse_function_declaration();
     default:
         return parser::parse_expr();
     };
@@ -68,6 +72,53 @@ astToken parser::parseStmt()
 astToken parser::parse_expr()
 {
     return parser::parse_additive_expr();
+}
+
+std::string generateRandomString(size_t length) {
+    const std::string chars =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+
+    std::mt19937 rng(std::chrono::steady_clock::now().time_since_epoch().count());
+    std::uniform_int_distribution<> dist(0, chars.size() - 1);
+
+    std::string result;
+    result.reserve(length);
+
+    for (size_t i = 0; i < length; ++i) {
+        result += chars[dist(rng)];
+    }
+
+    return result;
+}
+
+astToken parser::parse_function_declaration() {
+    parser::eat();
+    std::string identifier = (parser::at().type == TokenType::Identifier) ? parser::eat().value : generateRandomString(10);
+    
+    std::vector<astToken> args = parser::parse_arguments();
+    std::vector<std::string> params;
+
+    for (astToken value : args) {
+        params.push_back(value.value);
+    }
+
+    parser::expect(TokenType::OpenBrace);
+    std::vector<astToken> body;
+
+    while (parser::at().type != TokenType::EndOfFile && parser::at().type != TokenType::CloseBrace)
+    {
+        body.push_back(parser::parseStmt());
+    }
+    parser::expect(TokenType::OpenBrace);
+
+    return astToken {
+        .kind = tokenKind::FunctionDeclaration,
+        .body = body,
+        .name = identifier,
+        .params = params,
+    };
 }
 
 astToken parser::parse_var_declaration()
@@ -100,12 +151,53 @@ astToken parser::parse_var_declaration()
         .name = identifier};
 }
 
+astToken parser::parse_assignment_expr() {
+    
+}
+
+astToken parser::parse_power_expr() {
+    astToken left = parser::parse_member_call_expr();
+
+    while (parser::at().value == "^" || parser::at().value == "%") {
+        std::string op = parser::eat().value;
+        astToken right = parser::parse_member_call_expr();
+
+        return astToken {
+           .kind = tokenKind::BinaryExpr,
+           .right = std::make_shared<astToken>(right),
+           .left = std::make_shared<astToken>(left),
+           .op = op
+        };
+    }
+
+    return left;
+}
+
+astToken parser::parse_division_expr() {
+    astToken left = parser::parse_power_expr();
+
+    while (parser::at().value == "/") {
+        std::string op = parser::eat().value;
+        astToken right = parser::parse_power_expr();
+
+        return astToken {
+           .kind = tokenKind::BinaryExpr,
+           .right = std::make_shared<astToken>(right),
+           .left = std::make_shared<astToken>(left),
+           .op = op
+        };
+    }
+
+    return left;
+}
+
+
 astToken parser::parse_multiplicative_expr() {
-    astToken left = parser::parse_primary_expr();
+    astToken left = parser::parse_division_expr();
 
     while (parser::at().value == "*") {
         std::string op = parser::eat().value;
-        astToken right = parser::parse_primary_expr();
+        astToken right = parser::parse_division_expr();
 
         return astToken {
            .kind = tokenKind::BinaryExpr,
@@ -152,6 +244,102 @@ astToken parser::parse_additive_expr() {
     }
 
     return left;
+}
+
+/*
+function this.parse_arguments_list()
+		local args = { this.parseStmt() }
+
+		while this.at().type == "Comma" and this.eat() do
+			table.insert(args, this.parseStmt())
+		end
+
+		return args
+	end
+
+	function this.parse_args()
+		this.expect("OpenPar", "( after arguments")
+		local args = this.at().type == "ClosedPar" and {} or this.parse_arguments_list()
+
+		this.expect("ClosedPar", ") after arguments")
+
+		return args
+	end
+*/
+
+std::vector<astToken> parser::parse_arguments_list() {
+    std::vector<astToken> args = {parser::parseStmt()};
+    
+    while (parser::at().type == TokenType::Comma) {
+        parser::eat();
+        args.push_back(parser::parseStmt());
+    }
+
+    return args;
+}
+
+std::vector<astToken> parser::parse_arguments() {
+    parser::expect(TokenType::OpenParen);
+    std::vector<astToken> args = parser::at().type == TokenType::CloseParen ? std::vector<astToken>{} : parser::parse_arguments_list();
+
+    parser::expect(TokenType::CloseParen);
+
+    return args;
+}
+
+/*
+	function this.parse_call_expr(caller)
+		local call_expr = {
+			type = "CallExpr",
+			caller = caller,
+			args = this.parse_args(),
+		}
+
+		if this.at().type == "OpenPar" then
+			call_expr = this.parse_call_expr(call_expr)
+		end
+
+		if this.at() ~= nil and this.at().type == "DotComma" then
+			this.eat()
+		end
+
+		return call_expr
+	end
+
+    function this.parse_member_call_expr()
+		local member = this.parse_member_expr()
+
+		if this.at().type == "OpenPar" then
+			return this.parse_call_expr(member)
+		end
+
+		return member
+	end
+*/
+
+astToken parser::parse_call_expr(std::shared_ptr<astToken> caller) {
+    astToken call_expr {
+        .kind = tokenKind::CallExpr,
+        .args = parser::parse_arguments(),
+        .caller = caller,
+    };
+
+    if (parser::at().type == TokenType::OpenParen) {
+        call_expr = parser::parse_call_expr(caller);
+    }
+
+    parser::skip_semi_colon();
+    return call_expr;
+}
+
+astToken parser::parse_member_call_expr() {
+    astToken member = parser::parse_primary_expr();
+
+    if (parser::at().type == TokenType::OpenParen) {
+        return parser::parse_call_expr(std::make_shared<astToken>(member));
+    }
+
+    return member;
 }
 
 astToken parser::parse_primary_expr()

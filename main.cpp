@@ -27,15 +27,17 @@ int main()
     }
 
     std::string s;
+    std::string src;
 
     while (getline(file, s))
     {
+        src += s + '\n';
     };
 
     file.close();
 
     parser parserInstance;
-    astToken ast = parserInstance.produceAST(s);
+    astToken ast = parserInstance.produceAST(src);
     compiler compilerInstance;
     std::string bytecode = compilerInstance.compile(ast);
     

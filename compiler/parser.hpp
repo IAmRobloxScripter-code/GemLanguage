@@ -27,6 +27,8 @@ enum class tokenKind
     BinaryExpr
 };
 
+std::string generateRandomString(size_t length);
+
 struct astToken
 {
     tokenKind kind;
@@ -37,6 +39,9 @@ struct astToken
     std::string symbol;
     std::string name;
     std::string op;
+    std::vector<astToken> args;
+    std::shared_ptr<astToken> caller;
+    std::vector<std::string> params;
 };
 
 class parser
@@ -56,6 +61,13 @@ public:
     astToken parse_multiplicative_expr();
     astToken parse_division_expr();
     astToken parse_power_expr();
+    astToken parse_function_declaration();
+    astToken parse_call_expr(std::shared_ptr<astToken> caller);
+    astToken parse_member_call_expr();
+    astToken parse_assignment_expr();
+    std::vector<astToken> parse_arguments_list();
+    std::vector<astToken> parse_arguments();
+
 };
 
 #endif

@@ -9,8 +9,8 @@ void compiler::concat(std::string &str, std::string value) {
 }
 
 void compiler::compile_program(astToken &node) {
-    compiler::concat(bytecode, "function main\n");
-    compiler::identation += 1;
+    compiler::concat(bytecode, "function main :\n");
+    compiler::identation++;
 
     if (std::vector<astToken>& tokens = node.body; !tokens.empty()) {
         for (astToken& token : tokens) {
@@ -18,7 +18,7 @@ void compiler::compile_program(astToken &node) {
         }
     }
 
-    compiler::identation -= 1;
+    compiler::identation--;
 
     compiler::concat(bytecode, "RET");
 }
@@ -54,16 +54,40 @@ void compiler::compile_binary_expr(astToken &node) {
         compiler::concat(bytecode, compiler::spaces() + "MOD\n");
     }
 }
+
+void compiler::compile_function_declaration(astToken &node) {
+    compiler::concat(bytecode, compiler::spaces() + "function " + node.name + "\n");
+    compiler::identation++;
+
+    for (astToken& token : node.body) {
+        compiler::generate(token);
+    }
+    
+    compiler::identation--;
+    compiler::concat(bytecode, compiler::spaces() + "RET\n");
+}
+
+void compiler::compile_call_expr(astToken &node) {
+    for (astToken& param : node.args) {
+        compiler::generate(param);
+    }
+    compiler::concat(bytecode, compiler::spaces() + "CALL ");
+    compiler::generate(node.caller);
+}
+
+void compiler::compile_identifier(astToken &node) {
+    compiler::concat(bytecode, compiler::spaces() + "LOAD_LOCAL " + node.value + "\n");
+}
  
 void compiler::generate(astToken &node) {
     switch (node.kind)
     {
     case tokenKind::NumberLiteral: {
-        compiler::concat(compiler::bytecode, compiler::spaces() + "PUSH " + node.value + "\n");
+        compiler::concat(bytecode, compiler::spaces() + "PUSH " + node.value + "\n");
         break;
     }
     case tokenKind::StringLiteral: {
-        compiler::concat(compiler::bytecode, compiler::spaces() + "PUSH " + "\"" + node.value + "\"\n");
+        compiler::concat(bytecode, compiler::spaces() + "PUSH " + "\"" + node.value + "\"\n");
         break;
     }
     case tokenKind::Program: {
@@ -76,6 +100,14 @@ void compiler::generate(astToken &node) {
     }
     case tokenKind::BinaryExpr: {
         compiler::compile_binary_expr(node);
+        break;
+    }
+    case tokenKind::FunctionDeclaration: {
+        compiler::compile_function_declaration(node);
+        break;
+    }
+    case tokenKind::Identifier: {
+        compiler::compile_identifier(node);
         break;
     }
     default:

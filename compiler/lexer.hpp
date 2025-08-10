@@ -28,6 +28,8 @@ enum class TokenType
 
     BinaryOperator,
     Var,
+    Function,
+    
     EndOfFile
 };
 

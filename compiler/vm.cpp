@@ -24,6 +24,14 @@ void eval_function(StringVector &tokens, local_space<StringVector> &env)
 {
     shift(tokens);
     std::string name = shift(tokens);
+    StringVector params;
+
+    while (!tokens.empty() && tokens[0] != ":")
+    {
+        params.push_back(shift(tokens));
+    }
+
+    shift(tokens);
 
     StringVector body;
     while (!tokens.empty() && tokens[0] != "RET")
@@ -33,9 +41,10 @@ void eval_function(StringVector &tokens, local_space<StringVector> &env)
 
     shift(tokens);
 
-    std::map<std::string, std::variant<StringVector, local_space<StringVector>>> token{
+    std::map<std::string, std::variant<StringVector, local_space<StringVector>>> token {
         {"body", body},
-        {"declarationEnv", env}
+        {"declarationEnv", env},
+        {"params", params}
     };
 
     env.function_name_ids[name] = env.function_stack.size();
@@ -62,11 +71,7 @@ void eval_store_local(StringVector &tokens, local_space<StringVector> &env)
     shift(tokens);
     std::string identifier = shift(tokens);
 
-    std::map<std::string, std::variant<float, std::string>> token {
-        {identifier, shiftStack(env)}
-    };
-
-    env.local_stack.push_back(token);
+    env.local_stack[identifier] = shiftStack(env);
 }
 
 void eval_operand(StringVector &tokens, local_space<StringVector> &env)
@@ -79,6 +84,34 @@ void eval_operand(StringVector &tokens, local_space<StringVector> &env)
     else if (operand == "DIV") env.div();
     else if (operand == "POW") env.pow();
     else if (operand == "MOD") env.mod();
+}
+
+void eval_call(StringVector &tokens, local_space<StringVector> &env) {
+    shift(tokens);
+    
+    int ID = static_cast<int>(env.function_name_ids.at(shift(tokens)));
+    auto fn = env.function_stack[ID];
+
+    local_space<StringVector> scope(std::make_shared<local_space<StringVector>>(std::get<local_space<StringVector>>(fn.at("declarationEnv"))));
+    auto body = std::get<StringVector>(fn.at("body"));
+    auto params = std::get<StringVector>(fn.at("params"));
+
+    for (auto &param : params) {
+        scope.local_stack[param] = shiftStack(env);
+    }
+    
+    while (!body.empty()) {
+       evalToken(body, scope);
+    };
+
+    std::cout << scope.local_stack << std::endl;
+}
+
+void eval_load_local(StringVector &tokens, local_space<StringVector> &env) {
+    shift(tokens);
+    std::string identifier = shift(tokens);
+    auto value = env.local_stack.at(identifier);
+    env.stack.push_back(value);
 }
 
 void evalToken(StringVector &tokens, local_space<StringVector> &env)
@@ -96,17 +129,21 @@ void evalToken(StringVector &tokens, local_space<StringVector> &env)
     }
     else if (current == "ADD" || current == "SUB" || current == "MUL" || current == "DIV" || current == "POW" || current == "MOD") {
         eval_operand(tokens, env);
+    } else if (current == "CALL") {
+        eval_call(tokens, env);
+    } else if (current == "LOAD_LOCAL") {
+        eval_load_local(tokens, env);
     }
 }
 
 void evaluate(std::string &source)
 {
     local_space<StringVector> env;
+    source += "\nCALL main";
     StringVector tokens = tokenize(source);
 
     while (!tokens.empty()) {
        evalToken(tokens, env);
     }
-    std::cout << env.local_stack << std::endl;
     std::cout << "finished" << std::endl;
 }

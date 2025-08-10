@@ -4,15 +4,16 @@
 #include <sstream>
 #include <cstring>
 #include <vector>
+#include <variant>
 #include <map>
+#include "prettyprint.hpp"
 
 std::vector<std::string> splitString(const std::string &sourceCode)
 {
     std::vector<std::string> words;
 
-    for (char ch : sourceCode)
-    {
-        words.push_back(std::string(1, ch));
+    for (size_t i = 0; i < sourceCode.length(); i++) {
+        words.push_back(std::string(1, sourceCode[i]));
     }
 
     return words;
@@ -47,6 +48,7 @@ bool isAlpha(std::string x)
 
 std::map<std::string, TokenType> keywords = {
     {"var", TokenType::Var},
+    {"fn", TokenType::Function}
 };
 
 bool isStringBody(std::string x)
@@ -54,10 +56,9 @@ bool isStringBody(std::string x)
     return x == "'" || x == "`" || x == "\"";
 }
 
-bool isWhitespace(std::string x)
+bool isWhitespace(char x)
 {
-    std::string matches = " \n\t\r";
-    return matches.find(x) != std::string::npos;
+    return std::isspace(static_cast<unsigned char>(x));
 }
 
 std::vector<lexer_token> tokenize(const std::string &sourceCode)
@@ -69,7 +70,7 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
     {
         std::string c = src.front();
 
-        if (isWhitespace(c))
+        if (isWhitespace(c[0]))
         {
             shift(src);
             continue;
@@ -110,9 +111,9 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
             tokens.push_back(token(shift(src), TokenType::Equals));
         }
 
-        else if (c == "+" || c == "-" || c == "*" || c == "/" || c == "%" || c == "!")
+        else if (c == "+" || c == "-" || c == "*" || c == "/" || c == "^" || c == "%" || c == "!")
         {
-            tokens.push_back(token(shift(src), TokenType::Equals));
+            tokens.push_back(token(shift(src), TokenType::BinaryOperator));
         }
 
         else if (c == "=")
