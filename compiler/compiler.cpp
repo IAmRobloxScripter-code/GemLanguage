@@ -56,8 +56,14 @@ void compiler::compile_binary_expr(astToken &node) {
 }
 
 void compiler::compile_function_declaration(astToken &node) {
-    compiler::concat(bytecode, compiler::spaces() + "function " + node.name + "\n");
+    compiler::concat(bytecode, compiler::spaces() + "function " + node.name + " ");
     compiler::identation++;
+
+    for (std::string &param : node.params) {
+        compiler::concat(bytecode, param + " ");
+    }
+
+    compiler::concat(bytecode, ":\n");
 
     for (astToken& token : node.body) {
         compiler::generate(token);
@@ -71,12 +77,17 @@ void compiler::compile_call_expr(astToken &node) {
     for (astToken& param : node.args) {
         compiler::generate(param);
     }
-    compiler::concat(bytecode, compiler::spaces() + "CALL ");
-    compiler::generate(node.caller);
+
+    compiler::concat(bytecode, compiler::spaces() + "CALL " + node.caller.get()->value + "\n");
 }
 
 void compiler::compile_identifier(astToken &node) {
     compiler::concat(bytecode, compiler::spaces() + "LOAD_LOCAL " + node.value + "\n");
+}
+
+void compiler::compile_assignment_expr(astToken &node) {
+    compiler::generate(node.right);
+    compiler::concat(bytecode, compiler::spaces() + "STORE_LOCAL " + node.left.get()->value + "\n");
 }
  
 void compiler::generate(astToken &node) {
@@ -92,6 +103,10 @@ void compiler::generate(astToken &node) {
     }
     case tokenKind::Program: {
         compiler::compile_program(node);
+        break;
+    }
+    case tokenKind::CallExpr: {
+        compiler::compile_call_expr(node);
         break;
     }
     case tokenKind::VariableDeclaration: {
@@ -110,7 +125,12 @@ void compiler::generate(astToken &node) {
         compiler::compile_identifier(node);
         break;
     }
+    case tokenKind::AssignmentExpr: {
+        compiler::compile_assignment_expr(node);
+        break;
+    }
     default:
+        std::cout << "EXIT" << std::endl;
         exit(0);
     }
 }

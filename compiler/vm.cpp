@@ -34,16 +34,29 @@ void eval_function(StringVector &tokens, local_space<StringVector> &env)
     shift(tokens);
 
     StringVector body;
-    while (!tokens.empty() && tokens[0] != "RET")
+    int ends = 1;
+    while (!tokens.empty())
     {
+        if (tokens[0] == "RET") {
+            ends -= 1;
+        }
+
+        if (ends == 0) {
+           break;
+        }
+
+        if (tokens[0] == "function") {
+            ends += 1;
+        }
+
         body.push_back(shift(tokens));
     }
 
     shift(tokens);
 
-    std::map<std::string, std::variant<StringVector, local_space<StringVector>>> token {
+    std::map<std::string, std::variant<StringVector, std::reference_wrapper<local_space<StringVector>>>> token {
         {"body", body},
-        {"declarationEnv", env},
+        {"declarationEnv", std::ref(env)},
         {"params", params}
     };
 
@@ -92,19 +105,25 @@ void eval_call(StringVector &tokens, local_space<StringVector> &env) {
     int ID = static_cast<int>(env.function_name_ids.at(shift(tokens)));
     auto fn = env.function_stack[ID];
 
-    local_space<StringVector> scope(std::make_shared<local_space<StringVector>>(std::get<local_space<StringVector>>(fn.at("declarationEnv"))));
+    auto &declaration = std::get<std::reference_wrapper<local_space<StringVector>>>(fn.at("declarationEnv"));
+
+    local_space<StringVector> scope(std::make_shared<local_space<StringVector>>(declaration));
     auto body = std::get<StringVector>(fn.at("body"));
     auto params = std::get<StringVector>(fn.at("params"));
 
     for (auto &param : params) {
-        scope.local_stack[param] = shiftStack(env);
+        scope.local_stack[param] = shiftStack(declaration);
     }
     
     while (!body.empty()) {
        evalToken(body, scope);
     };
 
-    std::cout << scope.local_stack << std::endl;
+    if (scope.stack.size() > 0) {
+        env.stack.push_back(shiftStack(scope));
+    }
+
+    std::cout << scope.stack << std::endl;
 }
 
 void eval_load_local(StringVector &tokens, local_space<StringVector> &env) {
@@ -133,6 +152,8 @@ void evalToken(StringVector &tokens, local_space<StringVector> &env)
         eval_call(tokens, env);
     } else if (current == "LOAD_LOCAL") {
         eval_load_local(tokens, env);
+    } else {
+        std::cout << "THIS FAILED: " + shift(tokens) << std::endl;
     }
 }
 
@@ -145,5 +166,6 @@ void evaluate(std::string &source)
     while (!tokens.empty()) {
        evalToken(tokens, env);
     }
+    std::cout << env.stack << std::endl;
     std::cout << "finished" << std::endl;
 }

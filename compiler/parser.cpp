@@ -71,7 +71,7 @@ astToken parser::parseStmt()
 
 astToken parser::parse_expr()
 {
-    return parser::parse_additive_expr();
+    return parser::parse_assignment_expr();
 }
 
 std::string generateRandomString(size_t length) {
@@ -111,7 +111,7 @@ astToken parser::parse_function_declaration() {
     {
         body.push_back(parser::parseStmt());
     }
-    parser::expect(TokenType::OpenBrace);
+    parser::expect(TokenType::CloseBrace);
 
     return astToken {
         .kind = tokenKind::FunctionDeclaration,
@@ -152,7 +152,20 @@ astToken parser::parse_var_declaration()
 }
 
 astToken parser::parse_assignment_expr() {
+    astToken left = parser::parse_additive_expr();
+
+    if (parser::at().type == TokenType::Equals) {
+        std::string op = parser::eat().value;
+        astToken right = parser::parse_additive_expr();
+
+        return astToken {
+            .kind = tokenKind::AssignmentExpr,
+            .right = std::make_shared<astToken>(right),
+            .left = std::make_shared<astToken>(left)
+        };
+    }
     
+    return left;
 }
 
 astToken parser::parse_power_expr() {

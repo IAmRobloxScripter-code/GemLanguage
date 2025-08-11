@@ -32,7 +32,7 @@ using StringVector = std::vector<std::string>;
 template <typename T>
 class local_space;
 
-using Abomination = std::vector<std::map<std::string, std::variant<StringVector, local_space<StringVector>>>>;
+using Abomination = std::vector<std::map<std::string, std::variant<StringVector, std::reference_wrapper<local_space<StringVector>>>>>;
 using localStackType = std::map<std::string, std::variant<float, std::string>>;
 using fnNameIdsType = std::map<std::string, int>;
 using stackType = std::vector<std::variant<float, std::string>>;

@@ -20,6 +20,7 @@ enum class tokenKind
     FunctionDeclaration,
     HistoryDeclaration,
     CallExpr,
+    AssignmentExpr,
     MemberExpr,
     ObjectLiteral,
     NumberLiteral,

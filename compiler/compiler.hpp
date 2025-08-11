@@ -20,6 +20,7 @@ class compiler {
         void compile_function_declaration(astToken &node);
         void compile_call_expr(astToken &node);
         void compile_identifier(astToken &node);
+        void compile_assignment_expr(astToken &node);
 };
 
 #endif
