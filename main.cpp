@@ -35,13 +35,14 @@ int main()
     };
 
     file.close();
-
+    
     parser parserInstance;
     astToken ast = parserInstance.produceAST(src);
     compiler compilerInstance;
     std::string bytecode = compilerInstance.compile(ast);
-    
+
     std::cout << bytecode << std::endl;
     evaluate(bytecode);
+
     return 0;
 }

@@ -43,6 +43,10 @@ struct astToken
     std::vector<astToken> args;
     std::shared_ptr<astToken> caller;
     std::vector<std::string> params;
+    std::vector<std::map<std::string, std::variant<astToken, std::string, float, int, std::vector<std::string>>>> properties;
+    std::shared_ptr<astToken> object;
+    std::shared_ptr<astToken> property;
+    bool computed;
 };
 
 class parser
@@ -51,6 +55,7 @@ public:
     astToken produceAST(const std::string &source);
     astToken parse_primary_expr();
     astToken parse_var_declaration();
+    astToken parse_object_expr();
     astToken parseStmt();
     lexer_token at();
     lexer_token eat();
@@ -65,10 +70,10 @@ public:
     astToken parse_function_declaration();
     astToken parse_call_expr(std::shared_ptr<astToken> caller);
     astToken parse_member_call_expr();
+    astToken parse_member_expr();
     astToken parse_assignment_expr();
     std::vector<astToken> parse_arguments_list();
     std::vector<astToken> parse_arguments();
-
 };
 
 #endif

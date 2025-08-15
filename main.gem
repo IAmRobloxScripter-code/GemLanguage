@@ -1,5 +1,1 @@
-fn add(x, y) {
-    x + y
-}
-
-add(5, 10)
+print({"bass", {"GEMM"}})

@@ -152,11 +152,11 @@ astToken parser::parse_var_declaration()
 }
 
 astToken parser::parse_assignment_expr() {
-    astToken left = parser::parse_additive_expr();
+    astToken left = parser::parse_object_expr();
 
     if (parser::at().type == TokenType::Equals) {
         std::string op = parser::eat().value;
-        astToken right = parser::parse_additive_expr();
+        astToken right = parser::parse_object_expr();
 
         return astToken {
             .kind = tokenKind::AssignmentExpr,
@@ -346,13 +346,134 @@ astToken parser::parse_call_expr(std::shared_ptr<astToken> caller) {
 }
 
 astToken parser::parse_member_call_expr() {
-    astToken member = parser::parse_primary_expr();
+    astToken member = parser::parse_member_expr();
 
     if (parser::at().type == TokenType::OpenParen) {
         return parser::parse_call_expr(std::make_shared<astToken>(member));
     }
 
     return member;
+}
+
+using property = std::map<std::string, std::variant<astToken, std::string, float, int, std::vector<std::string>>>;
+
+astToken parser::parse_object_expr() {
+    if (parser::at().type != TokenType::OpenBrace) {
+        return parser::parse_additive_expr();
+    }
+
+    parser::eat();
+    
+    std::vector<property> properties;
+
+    while (parser::at().type != TokenType::EndOfFile && parser::at().type != TokenType::CloseBrace) {
+        astToken key = parser::parseStmt();
+
+        if (parser::at().type == TokenType::Comma) {
+            parser::eat();
+            property token {
+                {"key", std::to_string(static_cast<int>(properties.size()))},
+                {"value", key}
+            };
+            properties.push_back(token);
+            continue;
+        } else if (parser::at().type == TokenType::CloseBrace) {
+            property token {
+                {"key", std::to_string(static_cast<int>(properties.size()))},
+                {"value", key}
+            };
+            properties.push_back(token);
+            continue;
+        };
+
+        parser::expect(TokenType::Colon);
+
+        astToken value = parser::parseStmt();
+        property token {
+            {"key", key.value},
+            {"value", value}
+        };
+
+        properties.push_back(token);
+
+        if (parser::at().type != TokenType::CloseBrace) {
+            parser::expect(TokenType::Comma);
+        }
+    }
+
+    parser::expect(TokenType::CloseBrace);
+    parser::skip_semi_colon();
+
+    return astToken {
+      .kind = tokenKind::ObjectLiteral,
+      .properties = properties,
+    };
+}
+
+/*	function this.parse_member_expr()
+		local object = this.parse_unary_expr()
+
+		while this.at().type == "Dot" or this.at().type == "OpenSqrB" do
+			local operator = this.eat().type
+
+			local computed: boolean
+			local property
+
+			if operator == "Dot" then
+				computed = false
+				property = this.parse_unary_expr()
+
+				if property.type ~= "Identifier" then
+					this.expect("any", "identifier after member expression")
+				end
+			else
+				computed = true
+				property = this.parse_expr()
+
+				this.expect("ClosedSqrB", "] closing member expression")
+			end
+
+			object = {
+				type = "MemberExpr",
+				object = object,
+				property = property,
+				computed = computed,
+			}
+		end
+
+		return object
+	end*/
+
+astToken parser::parse_member_expr() {
+    astToken object = parser::parse_primary_expr();
+
+    while (parser::at().type == TokenType::Dot || parser::at().type == TokenType::OpenBracket) {
+        TokenType op = parser::eat().type;
+
+        bool computed;
+        astToken property;
+        
+        if (op == TokenType::Dot) {
+            computed = false;
+            property = parser::parse_primary_expr();
+        } else {
+            computed = true;
+            property = parser::parse_expr();
+
+            parser::expect(TokenType::CloseBracket);
+        }
+
+        astToken newObject {
+            .kind = tokenKind::MemberExpr,
+            .object = std::make_shared<astToken>(object),
+            .property = std::make_shared<astToken>(property),
+            .computed = computed
+        };
+
+        object = newObject;
+    }
+
+    return object;
 }
 
 astToken parser::parse_primary_expr()
@@ -382,6 +503,7 @@ astToken parser::parse_primary_expr()
         return value;
     };
     default:
+        std::cout << parser::at().value << std::endl;
         std::cout << "exit" << std::endl;
         exit(0);
     }
