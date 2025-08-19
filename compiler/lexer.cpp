@@ -12,7 +12,8 @@ std::vector<std::string> splitString(const std::string &sourceCode)
 {
     std::vector<std::string> words;
 
-    for (size_t i = 0; i < sourceCode.length(); i++) {
+    for (size_t i = 0; i < sourceCode.length(); i++)
+    {
         words.push_back(std::string(1, sourceCode[i]));
     }
 
@@ -50,11 +51,8 @@ std::map<std::string, TokenType> keywords = {
     {"var", TokenType::Var},
     {"if", TokenType::IfStmt},
     {"fn", TokenType::Function},
-    {"or", TokenType::Keyword},
-    {"and", TokenType::Keyword},
     {"else", TokenType::Keyword},
-    {"elif", TokenType::Keyword}
-};
+    {"elif", TokenType::Keyword}};
 
 bool isStringBody(std::string x)
 {
@@ -110,8 +108,10 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
         {
             tokens.push_back(token(shift(src), TokenType::CloseBracket));
         }
-        else if (c == ">" || c == "<" || c == "!") {
-            if (src[1] == "=") {
+        else if (c == ">" || c == "<" || c == "!")
+        {
+            if (src[1] == "=")
+            {
                 std::string op = shift(src);
                 shift(src);
                 tokens.push_back(token(op + "=", TokenType::ComparisonOperator));
@@ -122,7 +122,8 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
         }
         else if (c == "=")
         {
-            if (src[1] == "=") {
+            if (src[1] == "=")
+            {
                 shift(src);
                 shift(src);
                 tokens.push_back(token("==", TokenType::ComparisonOperator));
@@ -167,7 +168,18 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
         {
             tokens.push_back(token(shift(src), TokenType::Comma));
         }
-
+        else if (c + src[1] == "&&")
+        {
+            shift(src);
+            shift(src);
+            tokens.push_back(token("&&", TokenType::Keyword));
+        }
+        else if (c + src[1] == "||")
+        {
+            shift(src);
+            shift(src);
+            tokens.push_back(token("||", TokenType::Keyword));
+        }
         else if (isStringBody(c))
         {
             std::string body;
@@ -213,6 +225,39 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
             }
 
             tokens.push_back(token(number, TokenType::Number));
+        }
+        else if (c + src[1] == "##")
+        {
+            shift(src);
+            shift(src);
+
+            if (src[0] == "*")
+            {
+                std::string comment;
+                shift(src);
+
+                while (!src.empty() && (src[0] + src[1] + src[2]) != "*##")
+                {
+                    comment += shift(src);
+                }
+
+                shift(src);
+                shift(src);
+                shift(src);
+
+                tokens.push_back(token(comment, TokenType::Comment));
+            }
+            else
+            {
+                std::string comment;
+
+                while (!src.empty() && src[0] != "\n" && src[0] != "\r")
+                {
+                    comment += shift(src);
+                }
+
+                tokens.push_back(token(comment, TokenType::Comment));
+            }
         }
         else
         {

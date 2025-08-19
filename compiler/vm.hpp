@@ -43,14 +43,39 @@
 
 inline StringVector tokenize(std::string &src)
 {
-    StringVector words;
-    std::istringstream str(src);
-    std::string word;
-    while (str >> word)
-    {
-        words.push_back(word);
+     std::vector<std::string> tokens;
+    std::string current;
+    bool inQuotes = false;
+
+    for (size_t i = 0; i < src.size(); ++i) {
+        char c = src[i];
+
+        if (c == '"') {
+            inQuotes = !inQuotes;
+            current += c;
+        }
+        else if (c == ' ' && !inQuotes) {
+            if (!current.empty()) {
+                tokens.push_back(current);
+                current.clear();
+            }
+        }
+        else if ((c == '\n' || c == '\r') && !inQuotes) {
+            if (!current.empty()) {
+                tokens.push_back(current);
+                current.clear();
+            }
+        }
+        else {
+            current += c;
+        }
     }
-    return words;
+
+    if (!current.empty()) {
+        tokens.push_back(current);
+    }
+
+    return tokens;
 }
 
 void evaluate(std::string &source);
@@ -65,9 +90,10 @@ public:
 
     local_space() : parent_local_space(nullptr)
     {
-        local_stack["false"] = 0;
-        local_stack["true"] = 1;
-
+        local_stack["false"] = false;
+        local_stack["true"] = true;
+        local_stack["null"] = "__NULL__";
+        
         local_stack["print"] = callback{
             {"type", "native-fn"},
             {"call", function{[this](local_space<StringVector>* env)
@@ -84,17 +110,17 @@ public:
     }
     local_space(std::shared_ptr<local_space<T>> parent) : parent_local_space(parent) {}
 
-    local_space &resolve(std::string identifier)
+    local_space* resolve(std::string identifier)
     {
         if (local_stack.find(identifier) != local_stack.end())
         {
-            return *this;
+            return this;
         }
         else
         {
             if (!parent_local_space)
             {
-                throw "Variable not found";
+                return nullptr;
             }
             else
             {
@@ -105,8 +131,12 @@ public:
 
     valueVariant getVariable(std::string identifier)
     {
-        local_space &env = resolve(identifier);
-        return env.local_stack[identifier];
+        local_space* env = resolve(identifier);
+        
+        if (env == nullptr) {
+            return resolve("null")->local_stack["null"];
+        }
+        return env->local_stack[identifier];
     }
 
     valueVariant pop()
@@ -118,66 +148,108 @@ public:
         return value;
     }
 
-    float getFloat(const valueVariant &v)
+    float getDouble(const valueVariant &v)
     {
-        if (auto pval = std::get_if<float>(&v))
+        if (auto pval = std::get_if<double>(&v))
             return *pval;
-        throw std::runtime_error("Expected float value on stack");
+        throw std::runtime_error("Expected double value on stack");
     }
 
     void add()
     {
-        auto x = pop();
         auto y = pop();
-        float result = getFloat(x) + getFloat(y);
+        auto x = pop();
+        double result = getDouble(x) + getDouble(y);
         stack.push_back(result);
     }
 
     void sub()
     {
-        auto x = pop();
         auto y = pop();
-        float result = getFloat(x) - getFloat(y);
+        auto x = pop();
+        double result = getDouble(x) - getDouble(y);
         stack.push_back(result);
     }
 
     void mul()
     {
-        auto x = pop();
         auto y = pop();
-        float result = getFloat(x) * getFloat(y);
+        auto x = pop();
+        double result = getDouble(x) * getDouble(y);
         stack.push_back(result);
     }
 
     void div()
     {
-        auto x = pop();
         auto y = pop();
-        float divisor = getFloat(y);
+        auto x = pop();
+        double divisor = getDouble(y);
         if (divisor == 0.0f)
             throw std::runtime_error("Division by zero");
-        float result = getFloat(x) / divisor;
+        double result = getDouble(x) / divisor;
         stack.push_back(result);
     }
 
     void pow()
     {
-        auto x = pop();
         auto y = pop();
-        float result = std::pow(getFloat(x), getFloat(y));
+        auto x = pop();
+        double result = std::pow(getDouble(x), getDouble(y));
         stack.push_back(result);
     }
 
     void mod()
     {
-        auto x = pop();
         auto y = pop();
-        int a = static_cast<int>(getFloat(x));
-        int b = static_cast<int>(getFloat(y));
+        auto x = pop();
+        int a = static_cast<int>(getDouble(x));
+        int b = static_cast<int>(getDouble(y));
         if (b == 0)
             throw std::runtime_error("Modulo by zero");
         int result = a % b;
-        stack.push_back(static_cast<float>(result));
+        stack.push_back(static_cast<double>(result));
+    }
+
+    void equals() {
+        auto y = pop();
+        auto x = pop();
+
+        stack.push_back(y == x);
+    }
+
+    void greaterThanEquals() {
+        auto y = pop();
+        auto x = pop();
+
+        stack.push_back(x >= y);
+    }
+    
+    void lessThanEquals() {
+        auto y = pop();
+        auto x = pop();
+
+        stack.push_back(x <= y);
+    }
+
+    void greaterThan() {
+        auto y = pop();
+        auto x = pop();
+
+        stack.push_back(x > y);
+    }
+
+    void lessThan() {
+        auto y = pop();
+        auto x = pop();
+
+        stack.push_back(x < y);
+    }
+
+    void notEqual() {
+        auto y = pop();
+        auto x = pop();
+
+        stack.push_back(x != y);
     }
 };
 

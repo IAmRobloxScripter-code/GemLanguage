@@ -13,7 +13,7 @@ namespace print
     inline void printValue(const valueVariant &value, int depth = 0);
     inline void printTable(const table &tbl, int depth = 0);
 
-    inline void printKey(const std::variant<float, int, std::string> &key)
+    inline void printKey(const std::variant<double, int, std::string> &key)
     {
         std::visit([](auto &&k)
                    { std::cout << k; }, key);

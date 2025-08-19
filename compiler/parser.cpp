@@ -17,7 +17,11 @@ astToken parser::produceAST(const std::string &source)
     tokens = tokenize(source);
 
     while (tokens[0].type != TokenType::EndOfFile)
-    {
+    {   
+        if (tokens[0].type == TokenType::Comment) {
+            parser::eat();
+            continue;
+        }
         body.push_back(std::make_shared<astToken>(parser::parseStmt()));
     }
 
@@ -97,14 +101,15 @@ std::string generateRandomString(size_t length) {
 astToken parser::parse_or_keyword() {
     astToken left = parser::parse_and_keyword();
 
-    while (parser::at().value == "or") {
+    while (parser::at().value == "||") {
         parser::eat();
         astToken right = parser::parse_and_keyword();
 
         left = astToken {
             .kind = tokenKind::LogicGateExpr,
             .right = std::make_shared<astToken>(right),
-            .left = std::make_shared<astToken>(left)
+            .left = std::make_shared<astToken>(left),
+            .op = "or"
         };
     }
 
@@ -114,14 +119,15 @@ astToken parser::parse_or_keyword() {
 astToken parser::parse_and_keyword() {
     astToken left = parser::parse_comparasion_expr();
 
-    while (parser::at().value == "and") {
+    while (parser::at().value == "&&") {
         parser::eat();
         astToken right = parser::parse_comparasion_expr();
 
         left = astToken {
             .kind = tokenKind::LogicGateExpr,
             .right = std::make_shared<astToken>(right),
-            .left = std::make_shared<astToken>(left)
+            .left = std::make_shared<astToken>(left),
+            .op = "and"
         };
     }
 
@@ -149,7 +155,8 @@ astToken parser::parse_if_stmt(bool isELIFChain) {
             while (parser::at().value == "elif") {
                 elifChain.push_back(std::make_shared<astToken>(parser::parse_if_stmt(true)));
             }
-        } else if (parser::at().value == "else") {
+        } 
+        if (parser::at().value == "else") {
             parser::eat();
             parser::expect(TokenType::OpenBrace);
 

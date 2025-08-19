@@ -35,6 +35,7 @@ enum class TokenType
     ForLoop,
 
     Keyword,
+    Comment,
     
     EndOfFile
 };

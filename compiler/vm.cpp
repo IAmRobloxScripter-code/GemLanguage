@@ -14,7 +14,7 @@ std::string shift(StringVector &tokens)
     return value;
 }
 
-std::variant<callback, float, int, double, std::string, table> shiftStack(local_space<StringVector> &env)
+valueVariant shiftStack(local_space<StringVector> &env)
 {
     return env.pop();
 }
@@ -66,14 +66,22 @@ void eval_function(StringVector &tokens, local_space<StringVector> &env)
     env.stack.push_back(token);
 }
 
+bool is_double(const std::string &s)
+{
+    std::istringstream iss(s);
+    double d;
+    char c;
+    return iss >> d && !(iss >> c);
+}
+
 void eval_push(StringVector &tokens, local_space<StringVector> &env)
 {
     shift(tokens);
     std::string val = shift(tokens);
 
-    if (!val.empty() && std::all_of(val.begin(), val.end(), ::isdigit))
+    if (!val.empty() && is_double(val))
     {
-        env.stack.push_back(std::stof(val));
+        env.stack.push_back(std::stod(val));
     }
     else
     {
@@ -110,12 +118,12 @@ void eval_operand(StringVector &tokens, local_space<StringVector> &env)
 void eval_call(StringVector &tokens, local_space<StringVector> &env)
 {
     shift(tokens);
-    //std::cout << env.stack.size();
+    // std::cout << env.stack.size();
     callback fn = std::get<callback>(shiftStack(env));
     if (std::get<std::string>(fn.at("type")) == "native-fn")
-    {   
-        //fuckass classes and their pointers dude this bs is so much harder than TS or Lua
-        std::function<void(local_space<StringVector>*)> call = std::get<std::function<void(local_space<StringVector>*)>>(fn.at("call"));
+    {
+        // fuckass classes and their pointers dude, this bs is so much harder than TS or Lua
+        std::function<void(local_space<StringVector> *)> call = std::get<std::function<void(local_space<StringVector> *)>>(fn.at("call"));
         call(&env);
     }
     else
@@ -143,7 +151,7 @@ void eval_call(StringVector &tokens, local_space<StringVector> &env)
     }
 }
 
-tableNode getIndex(table &object, const std::variant<float, int, std::string> &key)
+tableNode getIndex(table &object, const std::variant<double, int, std::string> &key)
 {
     auto it = std::find_if(object.begin(), object.end(),
                            [&key](const tableNode &s)
@@ -194,7 +202,7 @@ void eval_store_key(StringVector &tokens, local_space<StringVector> &env)
 void eval_load_key(StringVector &tokens, local_space<StringVector> &env)
 {
     shift(tokens);
-    std::variant<float, int, std::string> key = shift(tokens);
+    std::variant<double, int, std::string> key = shift(tokens);
     table object = std::get<table>(shiftStack(env));
     /*
     for (auto &node : object) {
@@ -204,23 +212,198 @@ void eval_load_key(StringVector &tokens, local_space<StringVector> &env)
     env.stack.push_back(getIndex(object, key).value);
 }
 
-struct if_stmt {
+struct if_stmt
+{
     StringVector condition;
     StringVector body;
     std::unique_ptr<std::vector<std::shared_ptr<if_stmt>>> elifLabels;
     std::unique_ptr<StringVector> elseBody;
 };
 
-void eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
+bool isTruthy(auto &value)
+{
+    if ((std::holds_alternative<std::string>(value) && std::get<std::string>(value) == "__NULL__") || (std::holds_alternative<bool>(value) && std::get<bool>(value) == false))
+    {
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+void eval_if_stmt(StringVector &tokens, local_space<StringVector> &env)
+{
     // parsing the labels
     if_stmt ast;
     shift(tokens);
 
-    while (tokens[0] != "THEN") {
-        ast.body.push_back(shift(tokens));
+    while (tokens[0] != "THEN")
+    {
+        ast.condition.push_back(shift(tokens));
     }
     shift(tokens);
-    
+
+    while (tokens[0] != "ENDIF" && tokens[0] != "ELIF" && tokens[0] != "ELSE")
+    {
+        ast.body.push_back(shift(tokens));
+    }
+
+    if (tokens[0] == "ELIF")
+    {
+        ast.elifLabels = std::make_unique<std::vector<std::shared_ptr<if_stmt>>>();
+    }
+
+    while (tokens[0] == "ELIF")
+    {
+        if_stmt astELIF;
+        shift(tokens);
+
+        while (tokens[0] != "THEN")
+        {
+            astELIF.condition.push_back(shift(tokens));
+        }
+        shift(tokens);
+
+        while (tokens[0] != "ENDIF" && tokens[0] != "ELIF" && tokens[0] != "ELSE")
+        {
+            astELIF.body.push_back(shift(tokens));
+        }
+        ast.elifLabels->push_back(std::make_shared<if_stmt>(std::move(astELIF)));
+    }
+
+    if (tokens[0] == "ELSE")
+    {
+        ast.elseBody = std::make_unique<StringVector>();
+        shift(tokens);
+
+        while (tokens[0] != "ENDIF")
+        {
+            ast.elseBody->push_back(shift(tokens));
+        }
+    }
+    shift(tokens);
+
+    // parsing labels over
+    // evaluating now
+
+    local_space<StringVector> scope(std::ref(env));
+
+    while (!ast.condition.empty())
+    {
+        evalToken(ast.condition, scope);
+    }
+
+    auto result = shiftStack(scope);
+
+    if (isTruthy(result))
+    {
+        while (!ast.body.empty())
+        {
+            evalToken(ast.body, scope);
+        }
+    }
+    else
+    {
+        bool foundResult = false;
+
+        if (ast.elifLabels)
+        {
+            for (auto &elifNode : *ast.elifLabels)
+            {
+                while (!elifNode->condition.empty())
+                {
+                    evalToken(elifNode->condition, scope);
+                }
+
+                auto elifResult = shiftStack(scope);
+                if (isTruthy(elifResult))
+                {
+                    foundResult = true;
+                    while (!elifNode->body.empty())
+                    {
+                        evalToken(elifNode->body, scope);
+                    }
+                }
+                else
+                {
+                    continue;
+                }
+            }
+        }
+
+        if (foundResult == false && !ast.elseBody == false)
+        {
+            while (!(*ast.elseBody).empty())
+            {
+                evalToken(*ast.elseBody, scope);
+            }
+        }
+    }
+
+    if (scope.stack.size() > 0)
+    {
+        auto returnValue = shiftStack(scope);
+        env.stack.push_back(returnValue);
+    }
+}
+
+/*
+	return std:switch(operator, {
+		["&&"] = function()
+			if left.type == "undefined" or left.value == false then
+				return left
+			else
+				return this.evaluate(node.right, env)
+			end
+		end,
+		["||"] = function()
+			if left.type == "undefined" or left.value == false then
+				return this.evaluate(node.right, env)
+			else
+				return left
+			end
+		end,
+		["default"] = left,
+	})
+*/
+
+void eval_logicgate_expr(StringVector &tokens, local_space<StringVector> &env) {
+    std::string op = shift(tokens);
+    auto y = shiftStack(env);
+    auto x = shiftStack(env);
+
+    if (op == "AND") {
+        if (isTruthy(x) == false) {
+            env.stack.push_back(x);
+        } else {
+           env.stack.push_back(y);
+        }
+    } else {
+        if (isTruthy(x) == false) {
+            env.stack.push_back(y);
+        } else {
+           env.stack.push_back(x);
+        }
+    }
+}
+
+void eval_comparison_expr(StringVector &tokens, local_space<StringVector> &env)
+{
+    std::string operand = shift(tokens);
+
+    if (operand == "EQ")
+        env.equals();
+    else if (operand == "GTE")
+        env.greaterThanEquals();
+    else if (operand == "LTE")
+        env.lessThanEquals();
+    else if (operand == "LT")
+        env.lessThan();
+    else if (operand == "GT")
+        env.greaterThan();
+    else if (operand == "NOE")
+        env.notEqual();
 }
 
 void evalToken(StringVector &tokens, local_space<StringVector> &env)
@@ -267,9 +450,22 @@ void evalToken(StringVector &tokens, local_space<StringVector> &env)
     else if (current == "LOAD_KEY")
     {
         eval_load_key(tokens, env);
-    } else if (current == "IF")
+    }
+    else if (current == "IF")
     {
         eval_if_stmt(tokens, env);
+    }
+    else if (current == "EQ" || current == "GTE" || current == "LTE" || current == "GT" || current == "LT" || current == "NOE")
+    {
+        eval_comparison_expr(tokens, env);
+    }
+    else if (current == "NOT")
+    {
+        auto value = shiftStack(env);
+        bool result = !isTruthy(value);
+        env.stack.push_back(result);
+    } else if (current == "AND" || current == "OR") {
+        eval_logicgate_expr(tokens, env);
     }
     else
     {
@@ -287,6 +483,6 @@ void evaluate(std::string &source)
     {
         evalToken(tokens, env);
     }
-    // std::cout << env.stack << std::endl;
-    std::cout << "\nfinished" << std::endl;
+
+    std::cout << '\n';
 }

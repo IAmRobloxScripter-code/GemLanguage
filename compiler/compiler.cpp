@@ -188,8 +188,8 @@ void compiler::compile_unary_expr(astToken &node) {
         compiler::generate(node.right);
         compiler::concat(bytecode, compiler::spaces() + "SUB\n");
     } else if (node.op == "!") {
-        compiler::concat(bytecode, compiler::spaces() + "NOT\n");
         compiler::generate(node.right);
+        compiler::concat(bytecode, compiler::spaces() + "NOT\n");
     }
 }
 
@@ -197,17 +197,17 @@ void compiler::compile_comparison_expr(astToken &node) {
     compiler::generate(node.left);
     compiler::generate(node.right);
     if (node.op == "==") {
-        compiler::concat(bytecode, compiler::spaces() + "EQ");
+        compiler::concat(bytecode, compiler::spaces() + "EQ\n");
     } else if (node.op == ">=") {
-        compiler::concat(bytecode, compiler::spaces() + "GTE");
+        compiler::concat(bytecode, compiler::spaces() + "GTE\n");
     } else if (node.op == "<=") {
-        compiler::concat(bytecode, compiler::spaces() + "LTE");
+        compiler::concat(bytecode, compiler::spaces() + "LTE\n");
     } else if (node.op == ">") {
-        compiler::concat(bytecode, compiler::spaces() + "GT");
+        compiler::concat(bytecode, compiler::spaces() + "GT\n");
     } else if (node.op == "<") {
-        compiler::concat(bytecode, compiler::spaces() + "LT");
+        compiler::concat(bytecode, compiler::spaces() + "LT\n");
     } else if (node.op == "!=") {
-        compiler::concat(bytecode, compiler::spaces() + "NOE");
+        compiler::concat(bytecode, compiler::spaces() + "NOE\n");
     }
 }
 
@@ -216,9 +216,9 @@ void compiler::compile_logicgate_expr(astToken &node) {
     compiler::generate(node.right);
 
     if (node.op == "and") {
-       compiler::concat(bytecode, compiler::spaces() + "AND");
+       compiler::concat(bytecode, compiler::spaces() + "AND\n");
     } else {
-       compiler::concat(bytecode, compiler::spaces() + "OR");
+       compiler::concat(bytecode, compiler::spaces() + "OR\n");
     }
 }
 
