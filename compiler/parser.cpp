@@ -13,12 +13,12 @@
 std::vector<lexer_token> tokens;
 astToken parser::produceAST(const std::string &source)
 {
-    std::vector<astToken> body;
+    std::vector<std::shared_ptr<astToken>> body;
     tokens = tokenize(source);
 
     while (tokens[0].type != TokenType::EndOfFile)
     {
-        body.push_back(parser::parseStmt());
+        body.push_back(std::make_shared<astToken>(parser::parseStmt()));
     }
 
     return astToken{
@@ -64,6 +64,8 @@ astToken parser::parseStmt()
         return parser::parse_var_declaration();
     case TokenType::Function:
         return parser::parse_function_declaration();
+    case TokenType::IfStmt:
+        return parser::parse_if_stmt();
     default:
         return parser::parse_expr();
     };
@@ -71,7 +73,7 @@ astToken parser::parseStmt()
 
 astToken parser::parse_expr()
 {
-    return parser::parse_assignment_expr();
+    return parser::parse_unary_expr();
 }
 
 std::string generateRandomString(size_t length) {
@@ -92,24 +94,100 @@ std::string generateRandomString(size_t length) {
 
     return result;
 }
+astToken parser::parse_or_keyword() {
+    astToken left = parser::parse_and_keyword();
+
+    while (parser::at().value == "or") {
+        parser::eat();
+        astToken right = parser::parse_and_keyword();
+
+        left = astToken {
+            .kind = tokenKind::LogicGateExpr,
+            .right = std::make_shared<astToken>(right),
+            .left = std::make_shared<astToken>(left)
+        };
+    }
+
+    return left;
+}
+
+astToken parser::parse_and_keyword() {
+    astToken left = parser::parse_comparasion_expr();
+
+    while (parser::at().value == "and") {
+        parser::eat();
+        astToken right = parser::parse_comparasion_expr();
+
+        left = astToken {
+            .kind = tokenKind::LogicGateExpr,
+            .right = std::make_shared<astToken>(right),
+            .left = std::make_shared<astToken>(left)
+        };
+    }
+
+    return left;
+}
+
+astToken parser::parse_if_stmt(bool isELIFChain) {
+    parser::eat();
+    astToken condition = parser::parse_expr();
+
+    parser::expect(TokenType::OpenBrace);
+    std::vector<std::shared_ptr<astToken>> body;
+
+    while (parser::at().type != TokenType::EndOfFile && parser::at().type != TokenType::CloseBrace)
+    {
+        body.push_back(std::make_shared<astToken>(parser::parseStmt()));
+    }
+    parser::expect(TokenType::CloseBrace);
+
+    std::vector<std::shared_ptr<astToken>> elifChain;
+    std::vector<std::shared_ptr<astToken>> elsebody;
+
+    if (isELIFChain == false) {
+        if (parser::at().value == "elif") {
+            while (parser::at().value == "elif") {
+                elifChain.push_back(std::make_shared<astToken>(parser::parse_if_stmt(true)));
+            }
+        } else if (parser::at().value == "else") {
+            parser::eat();
+            parser::expect(TokenType::OpenBrace);
+
+            while (parser::at().type != TokenType::EndOfFile && parser::at().type != TokenType::CloseBrace)
+            {
+                elsebody.push_back(std::make_shared<astToken>(parser::parseStmt()));
+            }
+
+            parser::expect(TokenType::CloseBrace);
+        }
+    }
+
+    return astToken {
+        .kind = tokenKind::IfStmt,
+        .left = std::make_shared<astToken>(condition),
+        .elifChain = elifChain,
+        .elseBody = elsebody,
+        .body = body
+    };
+}
 
 astToken parser::parse_function_declaration() {
     parser::eat();
     std::string identifier = (parser::at().type == TokenType::Identifier) ? parser::eat().value : generateRandomString(10);
     
-    std::vector<astToken> args = parser::parse_arguments();
+    std::vector<std::shared_ptr<astToken>> args = parser::parse_arguments();
     std::vector<std::string> params;
 
-    for (astToken value : args) {
-        params.push_back(value.value);
+    for (std::shared_ptr<astToken> value : args) {
+        params.push_back(value.get()->value);
     }
 
     parser::expect(TokenType::OpenBrace);
-    std::vector<astToken> body;
+    std::vector<std::shared_ptr<astToken>> body;
 
     while (parser::at().type != TokenType::EndOfFile && parser::at().type != TokenType::CloseBrace)
     {
-        body.push_back(parser::parseStmt());
+        body.push_back(std::make_shared<astToken>(parser::parseStmt()));
     }
     parser::expect(TokenType::CloseBrace);
 
@@ -152,11 +230,11 @@ astToken parser::parse_var_declaration()
 }
 
 astToken parser::parse_assignment_expr() {
-    astToken left = parser::parse_object_expr();
+    astToken left = parser::parse_or_keyword();
 
     if (parser::at().type == TokenType::Equals) {
         std::string op = parser::eat().value;
-        astToken right = parser::parse_object_expr();
+        astToken right = parser::parse_or_keyword();
 
         return astToken {
             .kind = tokenKind::AssignmentExpr,
@@ -165,6 +243,55 @@ astToken parser::parse_assignment_expr() {
         };
     }
     
+    return left;
+}
+/*
+	function this.parse_unary_expr()
+		if this.at().value == "-" or this.at().value == "!" then
+			local operator = this.eat().value
+			this.expect("any", "value after unary expression")
+			local value = this.parse_primary_expr()
+
+			return {
+				type = "UnaryExpr",
+				operator = operator,
+				value = value,
+			}
+		end
+
+		return this.parse_primary_expr()
+	end
+*/
+astToken parser::parse_unary_expr() {
+    if (parser::at().value == "-" || parser::at().value == "!") {
+        std::string op = parser::eat().value;
+        astToken value = parser::parse_assignment_expr();
+
+        return astToken {
+            .kind = tokenKind::UnaryExpr,
+            .right = std::make_shared<astToken>(value),
+            .op = op
+        };
+    }
+
+    return parser::parse_assignment_expr();
+}
+
+astToken parser::parse_comparasion_expr() {
+    astToken left = parser::parse_object_expr();
+
+    while (parser::at().value == ">" || parser::at().value == "<" || parser::at().value == ">=" || parser::at().value == "<" || parser::at().value == "==" || parser::at().value == "!=") {
+        std::string op = parser::eat().value;
+        astToken right = parser::parse_object_expr();
+
+        return astToken {
+           .kind = tokenKind::ComparisonExpr,
+           .right = std::make_shared<astToken>(right),
+           .left = std::make_shared<astToken>(left),
+           .op = op
+        };
+    }
+
     return left;
 }
 
@@ -203,7 +330,6 @@ astToken parser::parse_division_expr() {
 
     return left;
 }
-
 
 astToken parser::parse_multiplicative_expr() {
     astToken left = parser::parse_division_expr();
@@ -280,20 +406,21 @@ function this.parse_arguments_list()
 	end
 */
 
-std::vector<astToken> parser::parse_arguments_list() {
-    std::vector<astToken> args = {parser::parseStmt()};
+std::vector<std::shared_ptr<astToken>> parser::parse_arguments_list() {
+    std::vector<std::shared_ptr<astToken>> args;
+    args.push_back(std::make_shared<astToken>(parser::parseStmt()));
     
     while (parser::at().type == TokenType::Comma) {
         parser::eat();
-        args.push_back(parser::parseStmt());
+        args.push_back(std::make_shared<astToken>(parser::parseStmt()));
     }
 
     return args;
 }
 
-std::vector<astToken> parser::parse_arguments() {
+std::vector<std::shared_ptr<astToken>> parser::parse_arguments() {
     parser::expect(TokenType::OpenParen);
-    std::vector<astToken> args = parser::at().type == TokenType::CloseParen ? std::vector<astToken>{} : parser::parse_arguments_list();
+    std::vector<std::shared_ptr<astToken>> args = parser::at().type == TokenType::CloseParen ? std::vector<std::shared_ptr<astToken>>{} : parser::parse_arguments_list();
 
     parser::expect(TokenType::CloseParen);
 
@@ -355,7 +482,7 @@ astToken parser::parse_member_call_expr() {
     return member;
 }
 
-using property = std::map<std::string, std::variant<astToken, std::string, float, int, std::vector<std::string>>>;
+using property = std::map<std::string, std::variant<std::shared_ptr<astToken>, std::string, float, int, std::vector<std::string>>>;
 
 astToken parser::parse_object_expr() {
     if (parser::at().type != TokenType::OpenBrace) {
@@ -367,7 +494,7 @@ astToken parser::parse_object_expr() {
     std::vector<property> properties;
 
     while (parser::at().type != TokenType::EndOfFile && parser::at().type != TokenType::CloseBrace) {
-        astToken key = parser::parseStmt();
+        std::shared_ptr<astToken> key = std::make_shared<astToken>(parser::parseStmt());
 
         if (parser::at().type == TokenType::Comma) {
             parser::eat();
@@ -388,9 +515,9 @@ astToken parser::parse_object_expr() {
 
         parser::expect(TokenType::Colon);
 
-        astToken value = parser::parseStmt();
+        std::shared_ptr<astToken> value = std::make_shared<astToken>(parser::parseStmt());
         property token {
-            {"key", key.value},
+            {"key", key.get()->value},
             {"value", value}
         };
 

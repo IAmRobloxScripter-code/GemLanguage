@@ -23,6 +23,11 @@ class compiler {
         void compile_assignment_expr(astToken &node);
         void compile_object_literal(astToken &node);
         void compile_member_expr(astToken &node);
+        void compile_unary_expr(astToken &node);
+        void compile_logicgate_expr(astToken &node);
+        void compile_if_stmt(astToken &node);
+        void compile_comparison_expr(astToken &node);
+
 };
 
 #endif

@@ -18,6 +18,7 @@ enum class tokenKind
     Identifier,
     VariableDeclaration,
     FunctionDeclaration,
+    IfStmt,
     HistoryDeclaration,
     CallExpr,
     AssignmentExpr,
@@ -25,7 +26,10 @@ enum class tokenKind
     ObjectLiteral,
     NumberLiteral,
     StringLiteral,
-    BinaryExpr
+    BinaryExpr,
+    ComparisonExpr,
+    UnaryExpr,
+    LogicGateExpr,
 };
 
 std::string generateRandomString(size_t length);
@@ -36,14 +40,16 @@ struct astToken
     std::string value;
     std::shared_ptr<astToken> right;
     std::shared_ptr<astToken> left;
-    std::vector<astToken> body;
+    std::vector<std::shared_ptr<astToken>> elifChain;
+    std::vector<std::shared_ptr<astToken>> elseBody;
+    std::vector<std::shared_ptr<astToken>> body;
     std::string symbol;
     std::string name;
     std::string op;
-    std::vector<astToken> args;
+    std::vector<std::shared_ptr<astToken>> args;
     std::shared_ptr<astToken> caller;
     std::vector<std::string> params;
-    std::vector<std::map<std::string, std::variant<astToken, std::string, float, int, std::vector<std::string>>>> properties;
+    std::vector<std::map<std::string, std::variant<std::shared_ptr<astToken>, std::string, float, int, std::vector<std::string>>>> properties;
     std::shared_ptr<astToken> object;
     std::shared_ptr<astToken> property;
     bool computed;
@@ -72,8 +78,14 @@ public:
     astToken parse_member_call_expr();
     astToken parse_member_expr();
     astToken parse_assignment_expr();
-    std::vector<astToken> parse_arguments_list();
-    std::vector<astToken> parse_arguments();
+    std::vector<std::shared_ptr<astToken>> parse_arguments_list();
+    std::vector<std::shared_ptr<astToken>> parse_arguments();
+    astToken parse_for_loop_stmt();
+    astToken parse_if_stmt(bool isELIFChain = false);
+    astToken parse_and_keyword();
+    astToken parse_or_keyword();
+    astToken parse_comparasion_expr();
+    astToken parse_unary_expr();
 };
 
 #endif

@@ -48,7 +48,12 @@ bool isAlpha(std::string x)
 
 std::map<std::string, TokenType> keywords = {
     {"var", TokenType::Var},
-    {"fn", TokenType::Function}
+    {"if", TokenType::IfStmt},
+    {"fn", TokenType::Function},
+    {"or", TokenType::Keyword},
+    {"and", TokenType::Keyword},
+    {"else", TokenType::Keyword},
+    {"elif", TokenType::Keyword}
 };
 
 bool isStringBody(std::string x)
@@ -105,9 +110,24 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
         {
             tokens.push_back(token(shift(src), TokenType::CloseBracket));
         }
+        else if (c == ">" || c == "<" || c == "!") {
+            if (src[1] == "=") {
+                std::string op = shift(src);
+                shift(src);
+                tokens.push_back(token(op + "=", TokenType::ComparisonOperator));
+                continue;
+            }
 
+            tokens.push_back(token(shift(src), TokenType::ComparisonOperator));
+        }
         else if (c == "=")
         {
+            if (src[1] == "=") {
+                shift(src);
+                shift(src);
+                tokens.push_back(token("==", TokenType::ComparisonOperator));
+                continue;
+            }
             tokens.push_back(token(shift(src), TokenType::Equals));
         }
 

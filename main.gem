@@ -1,1 +1,9 @@
-print({"bass", {"GEMM"}})
+if true {
+    print("gem")
+} elif false {
+    print("not gem")
+} elif 5 {
+    print("not 3232")
+} elif 2 {
+    print("not 5251")
+}

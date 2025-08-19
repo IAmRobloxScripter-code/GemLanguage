@@ -6,8 +6,6 @@
 #include <cctype>
 #include <functional>
 #include "prettyprint.hpp"
-#include <any>
-// #include "highprint.hpp"
 
 std::string shift(StringVector &tokens)
 {
@@ -206,6 +204,11 @@ void eval_load_key(StringVector &tokens, local_space<StringVector> &env)
     env.stack.push_back(getIndex(object, key).value);
 }
 
+void eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
+    shift(tokens);
+    
+}
+
 void evalToken(StringVector &tokens, local_space<StringVector> &env)
 {
     std::string current = tokens[0];
@@ -250,6 +253,9 @@ void evalToken(StringVector &tokens, local_space<StringVector> &env)
     else if (current == "LOAD_KEY")
     {
         eval_load_key(tokens, env);
+    } else if (current == "IF")
+    {
+        eval_if_stmt(tokens, env);
     }
     else
     {

@@ -15,11 +15,11 @@ void compiler::compile_program(astToken &node)
     compiler::concat(bytecode, "function main :\n");
     compiler::identation++;
 
-    if (std::vector<astToken> &tokens = node.body; !tokens.empty())
+    if (std::vector<std::shared_ptr<astToken>> &tokens = node.body; !tokens.empty())
     {
-        for (astToken &token : tokens)
+        for (std::shared_ptr<astToken> &token : tokens)
         {
-            compiler::generate(token);
+            compiler::generate(*token);
         }
     }
 
@@ -87,7 +87,7 @@ void compiler::compile_function_declaration(astToken &node, bool isDeclaration)
 
     compiler::concat(bytecode, ":\n");
 
-    for (astToken &token : node.body)
+    for (std::shared_ptr<astToken> &token : node.body)
     {
         compiler::generate(token);
     }
@@ -102,7 +102,7 @@ void compiler::compile_function_declaration(astToken &node, bool isDeclaration)
 
 void compiler::compile_call_expr(astToken &node)
 {
-    for (astToken &param : node.args)
+    for (std::shared_ptr<astToken> &param : node.args)
     {
         compiler::generate(param);
     }
@@ -153,7 +153,7 @@ void compiler::compile_object_literal(astToken &node)
     {
         for (auto &property : node.properties)
         {
-            compiler::generate(std::get<astToken>(property.at("value")), true);
+            compiler::generate(*std::get<std::shared_ptr<astToken>>(property.at("value")), true);
             compiler::concat(bytecode, compiler::spaces() + "STORE_KEY " + "\"" + std::get<std::string>(property.at("key")) + "\"\n");
         }
     }
@@ -180,6 +180,88 @@ void compiler::compile_member_expr(astToken &node)
     }
 
     // compiler::concat(bytecode, compiler::spaces() + "POP\n");
+}
+
+void compiler::compile_unary_expr(astToken &node) {
+    if (node.op == "-") {
+        compiler::concat(bytecode, compiler::spaces() + "PUSH 0\n");
+        compiler::generate(node.right);
+        compiler::concat(bytecode, compiler::spaces() + "SUB\n");
+    } else if (node.op == "!") {
+        compiler::concat(bytecode, compiler::spaces() + "NOT\n");
+        compiler::generate(node.right);
+    }
+}
+
+void compiler::compile_comparison_expr(astToken &node) {
+    compiler::generate(node.left);
+    compiler::generate(node.right);
+    if (node.op == "==") {
+        compiler::concat(bytecode, compiler::spaces() + "EQ");
+    } else if (node.op == ">=") {
+        compiler::concat(bytecode, compiler::spaces() + "GTE");
+    } else if (node.op == "<=") {
+        compiler::concat(bytecode, compiler::spaces() + "LTE");
+    } else if (node.op == ">") {
+        compiler::concat(bytecode, compiler::spaces() + "GT");
+    } else if (node.op == "<") {
+        compiler::concat(bytecode, compiler::spaces() + "LT");
+    } else if (node.op == "!=") {
+        compiler::concat(bytecode, compiler::spaces() + "NOE");
+    }
+}
+
+void compiler::compile_logicgate_expr(astToken &node) {
+    compiler::generate(node.left);
+    compiler::generate(node.right);
+
+    if (node.op == "and") {
+       compiler::concat(bytecode, compiler::spaces() + "AND");
+    } else {
+       compiler::concat(bytecode, compiler::spaces() + "OR");
+    }
+}
+
+void compiler::compile_if_stmt(astToken &node) {
+    compiler::concat(bytecode, compiler::spaces() + "IF\n");
+    compiler::identation++;
+    compiler::generate(node.left);
+    compiler::identation--;
+    compiler::concat(bytecode, compiler::spaces() + "THEN\n");
+
+    compiler::identation++;
+
+    for (std::shared_ptr<astToken>& epxr : node.body) {
+        compiler::generate(epxr);
+    }
+
+    if (node.elifChain.size() > 0) {
+        for (std::shared_ptr<astToken>& elifNode : node.elifChain) {
+            compiler::identation--;
+            compiler::concat(bytecode, compiler::spaces() + "ELIF\n");
+            compiler::identation++;
+            compiler::generate(elifNode.get()->left);
+            compiler::identation--;
+            compiler::concat(bytecode, compiler::spaces() + "THEN\n");
+            compiler::identation++;
+
+            for (std::shared_ptr<astToken>& epxr : elifNode.get()->body) {
+                compiler::generate(epxr);
+            }
+        }
+    }
+
+    if (node.elseBody.size() > 0) {
+        compiler::identation--;
+        compiler::concat(bytecode, compiler::spaces() + "ELSE\n");
+        compiler::identation++;
+        for (std::shared_ptr<astToken>& epxr : node.elseBody) {
+            compiler::generate(epxr);
+        }
+    }
+    
+    compiler::identation--;
+    compiler::concat(bytecode, compiler::spaces() + "ENDIF\n");
 }
 
 void compiler::generate(astToken &node, bool isDeclaration)
@@ -239,6 +321,22 @@ void compiler::generate(astToken &node, bool isDeclaration)
     case tokenKind::MemberExpr:
     {
         compiler::compile_member_expr(node);
+        break;
+    }
+    case tokenKind::UnaryExpr: {
+        compiler::compile_unary_expr(node);
+        break;
+    }
+    case tokenKind::ComparisonExpr: {
+        compiler::compile_comparison_expr(node);
+        break;
+    }
+    case tokenKind::LogicGateExpr: {
+        compiler::compile_logicgate_expr(node);
+        break;
+    }
+    case tokenKind::IfStmt: {
+        compiler::compile_if_stmt(node);
         break;
     }
     default:

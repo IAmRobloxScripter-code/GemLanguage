@@ -27,8 +27,14 @@ enum class TokenType
     Dot,
 
     BinaryOperator,
+    ComparisonOperator,
+
     Var,
     Function,
+    IfStmt,
+    ForLoop,
+
+    Keyword,
     
     EndOfFile
 };

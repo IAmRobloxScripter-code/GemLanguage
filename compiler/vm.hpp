@@ -10,7 +10,7 @@
 #include <variant>
 #include <string>
 #include <functional>
-
+#include "native.hpp"
 /*
   PUSH X
   STORE_LOCAL X
@@ -39,26 +39,7 @@
   LOAD_LOCAL TABLE
   LOAD_KEY X
   POP
-
-  LOAD_KEY_POP X
 */
-
-using StringVector = std::vector<std::string>;
-
-template <typename T>
-class local_space;
-using function = std::function<void(local_space<StringVector>*)>;
-using callback = std::map<std::string, std::variant<StringVector, std::string, function, std::reference_wrapper<local_space<StringVector>>>>;
-
-struct tableNode
-{
-    std::variant<float, int, std::string> key;
-    std::variant<callback, float, int, double, std::string, std::vector<tableNode>> value;
-};
-using table = std::vector<tableNode>;
-using valueVariant = std::variant<callback, float, int, double, std::string, table>;
-using localStackType = std::map<std::string, valueVariant>;
-using stackType = std::vector<valueVariant>;
 
 inline StringVector tokenize(std::string &src)
 {
@@ -73,48 +54,6 @@ inline StringVector tokenize(std::string &src)
 }
 
 void evaluate(std::string &source);
-// im tired boss
-namespace print
-{
-    inline void printValue(const valueVariant &value, int depth = 0);
-    inline void printTable(const table &tbl, int depth = 0);
-
-    inline void printKey(const std::variant<float, int, std::string> &key)
-    {
-        std::visit([](auto &&k)
-                   { std::cout << k; }, key);
-    }
-
-    inline void printTable(const table &tbl, int depth)
-    {
-        for (const auto &node : tbl)
-        {
-            std::cout << std::string(depth * 2, ' ');
-            printKey(node.key);
-            std::cout << " : ";
-            printValue(node.value, depth);
-            std::cout << "\n";
-        }
-    }
-
-    inline void printValue(const valueVariant &value, int depth)
-    {
-        // std::visit pmo
-        std::visit([depth](auto &&v)
-                   {
-            using T = std::decay_t<decltype(v)>;
-            if constexpr (std::is_same_v<T, table>) {
-                std::cout << "\n";
-                printTable(v, depth + 1);
-            }
-            else if constexpr (std::is_same_v<T, callback>) {
-                std::cout << "<function>";
-            }
-            else {
-                std::cout << v;
-            } }, value);
-    }
-}
 
 template <typename T>
 class local_space
@@ -126,6 +65,9 @@ public:
 
     local_space() : parent_local_space(nullptr)
     {
+        local_stack["false"] = 0;
+        local_stack["true"] = 1;
+
         local_stack["print"] = callback{
             {"type", "native-fn"},
             {"call", function{[this](local_space<StringVector>* env)
