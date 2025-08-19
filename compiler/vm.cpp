@@ -204,7 +204,21 @@ void eval_load_key(StringVector &tokens, local_space<StringVector> &env)
     env.stack.push_back(getIndex(object, key).value);
 }
 
+struct if_stmt {
+    StringVector condition;
+    StringVector body;
+    std::unique_ptr<std::vector<std::shared_ptr<if_stmt>>> elifLabels;
+    std::unique_ptr<StringVector> elseBody;
+};
+
 void eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
+    // parsing the labels
+    if_stmt ast;
+    shift(tokens);
+
+    while (tokens[0] != "THEN") {
+        ast.body.push_back(shift(tokens));
+    }
     shift(tokens);
     
 }

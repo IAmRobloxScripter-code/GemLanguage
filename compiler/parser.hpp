@@ -33,7 +33,7 @@ enum class tokenKind
 };
 
 std::string generateRandomString(size_t length);
-
+// ik this struct is big and uses a lot of memory but too late to change 80% of the code now
 struct astToken
 {
     tokenKind kind;
