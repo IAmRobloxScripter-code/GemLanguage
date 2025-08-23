@@ -1,0 +1,33 @@
+function main :
+  function foo :
+    IF
+      PUSH 10
+      PUSH 10
+      ADD
+      PUSH 20
+      EQ
+    THEN
+      IF
+        PUSH 10
+        PUSH 10
+        ADD
+        PUSH 20
+        EQ
+      THEN
+        PUSH "GEM"
+      ENDIF
+      ELSE
+        PUSH "LOO"
+      ENDIF
+    ENDIF
+    ELSE
+      PUSH "GOO"
+    ENDIF
+  RET
+  STORE_LOCAL foo
+  LOAD_LOCAL foo
+  CALL
+  LOAD_LOCAL print
+  CALL
+RET
+STORE_LOCAL main
