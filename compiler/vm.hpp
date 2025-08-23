@@ -1,3 +1,4 @@
+#pragma once
 #ifndef VM_HPP
 #define VM_HPP
 
@@ -39,6 +40,31 @@
   LOAD_LOCAL TABLE
   LOAD_KEY X
   POP
+
+  PUSH 0
+  STORE_LOCAL I
+
+  LOOP
+    IF
+      LOAD_LOCAL I
+      PUSH 10
+      GTE
+    THEN
+      BREAK
+    ENDIF
+    --whatever
+  ENDLOOP
+
+  LOOP
+    IF
+      LOAD_LOCAL TABLE
+      LOCAL_KEY ITERATOR
+      CALL
+    THEN
+      --doostuff
+    ENDIF
+    BREAK
+  ENDLOOP
 */
 
 inline StringVector tokenize(std::string &src)

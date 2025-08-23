@@ -1,5 +1,5 @@
 CC = g++
-CFLAGS = -Wall -g -std=c++20
+CFLAGS = -Wall -O2 -std=c++20
 TARGET = main
 SRC = main.cpp compiler/lexer.cpp compiler/parser.cpp compiler/compiler.cpp compiler/vm.cpp
 

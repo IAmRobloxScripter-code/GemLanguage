@@ -6,9 +6,14 @@
 #include <cctype>
 #include <functional>
 #include "prettyprint.hpp"
+#include "../gemSettings.hpp"
 
 std::string shift(StringVector &tokens)
 {
+    if (tokens.empty())
+    {
+        throw "No more tokens";
+    }
     std::string value = tokens[0];
     tokens.erase(tokens.begin());
     return value;
@@ -244,10 +249,26 @@ void eval_if_stmt(StringVector &tokens, local_space<StringVector> &env)
     }
     shift(tokens);
 
-    while (tokens[0] != "ENDIF" && tokens[0] != "ELIF" && tokens[0] != "ELSE")
+    int ends = 1;
+    while (!tokens.empty())
     {
+        if (tokens[0] == "ENDIF")
+        {
+            ends -= 1;
+        }
+
+        if (tokens[0] == "IF" || tokens[0] == "ELSE" || tokens[0] == "ELIF")
+        {
+            ends += 1;
+        }
+        if (ends <= 0)
+        {
+            break;
+        }
         ast.body.push_back(shift(tokens));
     }
+
+    shift(tokens);
 
     if (tokens[0] == "ELIF")
     {
@@ -265,10 +286,27 @@ void eval_if_stmt(StringVector &tokens, local_space<StringVector> &env)
         }
         shift(tokens);
 
-        while (tokens[0] != "ENDIF" && tokens[0] != "ELIF" && tokens[0] != "ELSE")
+        int ends = 1;
+        while (!tokens.empty())
         {
+            if (tokens[0] == "ENDIF")
+            {
+                ends -= 1;
+            }
+
+            if (tokens[0] == "IF" || tokens[0] == "ELSE" || tokens[0] == "ELIF")
+            {
+                ends += 1;
+            }
+
+            if (ends <= 0)
+            {
+                break;
+            }
+
             astELIF.body.push_back(shift(tokens));
         }
+        shift(tokens);
         ast.elifLabels->push_back(std::make_shared<if_stmt>(std::move(astELIF)));
     }
 
@@ -277,12 +315,29 @@ void eval_if_stmt(StringVector &tokens, local_space<StringVector> &env)
         ast.elseBody = std::make_unique<StringVector>();
         shift(tokens);
 
-        while (tokens[0] != "ENDIF")
+       int ends = 1;
+        while (!tokens.empty())
         {
+            if (tokens[0] == "ENDIF")
+            {
+                ends -= 1;
+            }
+
+            if (tokens[0] == "IF" || tokens[0] == "ELSE" || tokens[0] == "ELIF")
+            {
+                ends += 1;
+            }
+
+            if (ends <= 0)
+            {
+                break;
+            }
+
             ast.elseBody->push_back(shift(tokens));
         }
+        shift(tokens);
     }
-    shift(tokens);
+    //shift(tokens);
 
     // parsing labels over
     // evaluating now
@@ -349,41 +404,51 @@ void eval_if_stmt(StringVector &tokens, local_space<StringVector> &env)
 }
 
 /*
-	return std:switch(operator, {
-		["&&"] = function()
-			if left.type == "undefined" or left.value == false then
-				return left
-			else
-				return this.evaluate(node.right, env)
-			end
-		end,
-		["||"] = function()
-			if left.type == "undefined" or left.value == false then
-				return this.evaluate(node.right, env)
-			else
-				return left
-			end
-		end,
-		["default"] = left,
-	})
+    return std:switch(operator, {
+        ["&&"] = function()
+            if left.type == "undefined" or left.value == false then
+                return left
+            else
+                return this.evaluate(node.right, env)
+            end
+        end,
+        ["||"] = function()
+            if left.type == "undefined" or left.value == false then
+                return this.evaluate(node.right, env)
+            else
+                return left
+            end
+        end,
+        ["default"] = left,
+    })
 */
 
-void eval_logicgate_expr(StringVector &tokens, local_space<StringVector> &env) {
+void eval_logicgate_expr(StringVector &tokens, local_space<StringVector> &env)
+{
     std::string op = shift(tokens);
     auto y = shiftStack(env);
     auto x = shiftStack(env);
 
-    if (op == "AND") {
-        if (isTruthy(x) == false) {
+    if (op == "AND")
+    {
+        if (isTruthy(x) == false)
+        {
             env.stack.push_back(x);
-        } else {
-           env.stack.push_back(y);
         }
-    } else {
-        if (isTruthy(x) == false) {
+        else
+        {
             env.stack.push_back(y);
-        } else {
-           env.stack.push_back(x);
+        }
+    }
+    else
+    {
+        if (isTruthy(x) == false)
+        {
+            env.stack.push_back(y);
+        }
+        else
+        {
+            env.stack.push_back(x);
         }
     }
 }
@@ -464,7 +529,9 @@ void evalToken(StringVector &tokens, local_space<StringVector> &env)
         auto value = shiftStack(env);
         bool result = !isTruthy(value);
         env.stack.push_back(result);
-    } else if (current == "AND" || current == "OR") {
+    }
+    else if (current == "AND" || current == "OR")
+    {
         eval_logicgate_expr(tokens, env);
     }
     else
@@ -475,14 +542,27 @@ void evalToken(StringVector &tokens, local_space<StringVector> &env)
 
 void evaluate(std::string &source)
 {
+    if (settings.verbose)
+        std::cout << "GVM(Gem Virtual Machine) has started" << std::endl;
     local_space<StringVector> env;
+    if (settings.verbose)
+        std::cout << "Enviroment has been initialized" << std::endl;
     source += "\nLOAD_LOCAL main\nCALL";
+    if (settings.verbose)
+        std::cout << "Bytecode tokenization has begun" << std::endl;
     StringVector tokens = tokenize(source);
+
+    if (settings.verbose)
+        std::cout << "Bytecode tokenization has ended" << std::endl;
+    if (settings.verbose)
+        std::cout << "GVM(Gem Virtual Machine) has started evaluating" << std::endl;
 
     while (!tokens.empty())
     {
         evalToken(tokens, env);
     }
 
+    if (settings.verbose)
+        std::cout << "\nGVM(Gem Virtual Machine) has finished evaluating" << std::endl;
     std::cout << '\n';
 }

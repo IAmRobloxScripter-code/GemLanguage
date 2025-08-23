@@ -7,6 +7,7 @@
 #include <variant>
 #include <map>
 #include "prettyprint.hpp"
+#include <deque>
 
 std::vector<std::string> splitString(const std::string &sourceCode)
 {
@@ -20,10 +21,10 @@ std::vector<std::string> splitString(const std::string &sourceCode)
     return words;
 }
 
-std::string shift(std::vector<std::string> &src, int index = 0)
+std::string shift(std::deque<std::string> &src)
 {
-    std::string value = src[index];
-    src.erase(src.begin() + index);
+    std::string value = src.front();
+    src.pop_front();
     return value;
 }
 
@@ -52,7 +53,10 @@ std::map<std::string, TokenType> keywords = {
     {"if", TokenType::IfStmt},
     {"fn", TokenType::Function},
     {"else", TokenType::Keyword},
-    {"elif", TokenType::Keyword}};
+    {"elif", TokenType::Keyword},
+    {"for", TokenType::ForLoop},
+    {"while", TokenType::WhileLoop},
+    {"in", TokenType::In}};
 
 bool isStringBody(std::string x)
 {
@@ -67,7 +71,8 @@ bool isWhitespace(char x)
 std::vector<lexer_token> tokenize(const std::string &sourceCode)
 {
     std::vector<lexer_token> tokens;
-    std::vector<std::string> src = splitString(sourceCode);
+    auto v = splitString(sourceCode);
+    std::deque<std::string> src = std::deque(v.begin(), v.end());
 
     while (!src.empty())
     {
@@ -261,8 +266,7 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
         }
         else
         {
-            std::cout << "exit cuz invalid letter or sum" << std::endl;
-            exit(0);
+            throw "Invalid character " + c;
         }
     }
 

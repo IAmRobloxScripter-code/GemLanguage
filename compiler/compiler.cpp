@@ -1,6 +1,8 @@
 #include "compiler.hpp"
 #include <sstream>
 #include <algorithm>
+#include <iostream>
+#include "../gemSettings.hpp"
 
 std::string compiler::bytecode = "";
 int compiler::identation = 0;
@@ -8,6 +10,11 @@ int compiler::identation = 0;
 void compiler::concat(std::string &str, std::string value)
 {
     str += value;
+}
+
+std::string compiler::spaces()
+{
+    return std::string(compiler::identation * 2, ' ');
 }
 
 void compiler::compile_program(astToken &node)
@@ -19,19 +26,14 @@ void compiler::compile_program(astToken &node)
     {
         for (std::shared_ptr<astToken> &token : tokens)
         {
-            compiler::generate(*token);
+            compiler::generate(token);
         }
     }
 
     compiler::identation--;
 
     compiler::concat(bytecode, "RET\n");
-    compiler::concat(bytecode, compiler::spaces() + "STORE_LOCAL main");
-}
-
-std::string compiler::spaces()
-{
-    return std::string(compiler::identation * 2, ' ');
+    compiler::concat(bytecode, "STORE_LOCAL main");
 }
 
 void compiler::compile_var_declaration(astToken &node)
@@ -182,47 +184,68 @@ void compiler::compile_member_expr(astToken &node)
     // compiler::concat(bytecode, compiler::spaces() + "POP\n");
 }
 
-void compiler::compile_unary_expr(astToken &node) {
-    if (node.op == "-") {
+void compiler::compile_unary_expr(astToken &node)
+{
+    if (node.op == "-")
+    {
         compiler::concat(bytecode, compiler::spaces() + "PUSH 0\n");
         compiler::generate(node.right);
         compiler::concat(bytecode, compiler::spaces() + "SUB\n");
-    } else if (node.op == "!") {
+    }
+    else if (node.op == "!")
+    {
         compiler::generate(node.right);
         compiler::concat(bytecode, compiler::spaces() + "NOT\n");
     }
 }
 
-void compiler::compile_comparison_expr(astToken &node) {
+void compiler::compile_comparison_expr(astToken &node)
+{
     compiler::generate(node.left);
     compiler::generate(node.right);
-    if (node.op == "==") {
+    if (node.op == "==")
+    {
         compiler::concat(bytecode, compiler::spaces() + "EQ\n");
-    } else if (node.op == ">=") {
+    }
+    else if (node.op == ">=")
+    {
         compiler::concat(bytecode, compiler::spaces() + "GTE\n");
-    } else if (node.op == "<=") {
+    }
+    else if (node.op == "<=")
+    {
         compiler::concat(bytecode, compiler::spaces() + "LTE\n");
-    } else if (node.op == ">") {
+    }
+    else if (node.op == ">")
+    {
         compiler::concat(bytecode, compiler::spaces() + "GT\n");
-    } else if (node.op == "<") {
+    }
+    else if (node.op == "<")
+    {
         compiler::concat(bytecode, compiler::spaces() + "LT\n");
-    } else if (node.op == "!=") {
+    }
+    else if (node.op == "!=")
+    {
         compiler::concat(bytecode, compiler::spaces() + "NOE\n");
     }
 }
 
-void compiler::compile_logicgate_expr(astToken &node) {
+void compiler::compile_logicgate_expr(astToken &node)
+{
     compiler::generate(node.left);
     compiler::generate(node.right);
 
-    if (node.op == "and") {
-       compiler::concat(bytecode, compiler::spaces() + "AND\n");
-    } else {
-       compiler::concat(bytecode, compiler::spaces() + "OR\n");
+    if (node.op == "and")
+    {
+        compiler::concat(bytecode, compiler::spaces() + "AND\n");
+    }
+    else
+    {
+        compiler::concat(bytecode, compiler::spaces() + "OR\n");
     }
 }
 
-void compiler::compile_if_stmt(astToken &node) {
+void compiler::compile_if_stmt(astToken &node)
+{
     compiler::concat(bytecode, compiler::spaces() + "IF\n");
     compiler::identation++;
     compiler::generate(node.left);
@@ -231,12 +254,18 @@ void compiler::compile_if_stmt(astToken &node) {
 
     compiler::identation++;
 
-    for (std::shared_ptr<astToken>& epxr : node.body) {
+    for (std::shared_ptr<astToken> &epxr : node.body)
+    {
         compiler::generate(epxr);
     }
+    compiler::identation--;
+    compiler::concat(bytecode, compiler::spaces() + "ENDIF\n");
+    compiler::identation++;
 
-    if (node.elifChain.size() > 0) {
-        for (std::shared_ptr<astToken>& elifNode : node.elifChain) {
+    if (node.elifChain.size() > 0)
+    {
+        for (std::shared_ptr<astToken> &elifNode : node.elifChain)
+        {
             compiler::identation--;
             compiler::concat(bytecode, compiler::spaces() + "ELIF\n");
             compiler::identation++;
@@ -245,23 +274,79 @@ void compiler::compile_if_stmt(astToken &node) {
             compiler::concat(bytecode, compiler::spaces() + "THEN\n");
             compiler::identation++;
 
-            for (std::shared_ptr<astToken>& epxr : elifNode.get()->body) {
+            for (std::shared_ptr<astToken> &epxr : elifNode.get()->body)
+            {
                 compiler::generate(epxr);
             }
+            compiler::identation--;
+            compiler::concat(bytecode, compiler::spaces() + "ENDIF\n");
+            compiler::identation++;
         }
     }
 
-    if (node.elseBody.size() > 0) {
+    if (node.elseBody.size() > 0)
+    {
         compiler::identation--;
         compiler::concat(bytecode, compiler::spaces() + "ELSE\n");
         compiler::identation++;
-        for (std::shared_ptr<astToken>& epxr : node.elseBody) {
+        for (std::shared_ptr<astToken> &epxr : node.elseBody)
+        {
             compiler::generate(epxr);
         }
+        compiler::identation--;
+        compiler::concat(bytecode, compiler::spaces() + "ENDIF\n"); 
     }
-    
+}
+
+void compiler::compile_forloop_stmt(astToken &node)
+{
+    if (std::holds_alternative<std::vector<std::shared_ptr<astToken>>>(node.iterator))
+    {
+        // for range
+        auto iterator = std::get<std::vector<std::shared_ptr<astToken>>>(node.iterator);
+        compiler::generate(iterator[0]);
+        compiler::concat(bytecode, compiler::spaces() + "STORE_LOCAL " + node.params[0] + "\n");
+
+        compiler::concat(bytecode, compiler::spaces() + "LOOP\n");
+        compiler::identation++;
+
+        compiler::concat(bytecode, compiler::spaces() + "IF\n");
+        compiler::identation++;
+        compiler::concat(bytecode, compiler::spaces() + "LOAD_LOCAL " + node.params[0] + "\n");
+        compiler::generate(iterator[1]);
+        compiler::concat(bytecode, compiler::spaces() + "GTE\n");
+
+        compiler::identation--;
+        compiler::concat(bytecode, compiler::spaces() + "THEN\n");
+        compiler::identation++;
+        compiler::concat(bytecode, compiler::spaces() + "BREAK\n");
+        compiler::identation--;
+        compiler::concat(bytecode, compiler::spaces() + "ENDIF\n");
+
+        compiler::concat(bytecode, compiler::spaces() + "LOAD_LOCAL " + node.params[0] + "\n");
+        if (iterator.size() >= 3)
+        {
+            compiler::generate(iterator[2]);
+        }
+        else
+        {
+            compiler::concat(bytecode, compiler::spaces() + "PUSH 1" + "\n");
+        }
+
+        compiler::concat(bytecode, compiler::spaces() + "ADD\n");
+    }
+    else
+    {
+        // for table
+    }
+
+    for (std::shared_ptr<astToken> &epxr : node.body)
+    {
+        compiler::generate(epxr);
+    }
+
     compiler::identation--;
-    compiler::concat(bytecode, compiler::spaces() + "ENDIF\n");
+    compiler::concat(bytecode, compiler::spaces() + "ENDLOOP\n");
 }
 
 void compiler::generate(astToken &node, bool isDeclaration)
@@ -323,25 +408,33 @@ void compiler::generate(astToken &node, bool isDeclaration)
         compiler::compile_member_expr(node);
         break;
     }
-    case tokenKind::UnaryExpr: {
+    case tokenKind::UnaryExpr:
+    {
         compiler::compile_unary_expr(node);
         break;
     }
-    case tokenKind::ComparisonExpr: {
+    case tokenKind::ComparisonExpr:
+    {
         compiler::compile_comparison_expr(node);
         break;
     }
-    case tokenKind::LogicGateExpr: {
+    case tokenKind::LogicGateExpr:
+    {
         compiler::compile_logicgate_expr(node);
         break;
     }
-    case tokenKind::IfStmt: {
+    case tokenKind::IfStmt:
+    {
         compiler::compile_if_stmt(node);
         break;
     }
+    case tokenKind::ForLoopStmt:
+    {
+        compiler::compile_forloop_stmt(node);
+        break;
+    }
     default:
-        std::cout << "EXIT" << std::endl;
-        exit(0);
+        throw "Invalid ast found during compilation";
     }
 }
 
@@ -353,12 +446,18 @@ void compiler::generate(std::shared_ptr<astToken> &node, bool isDeclaration)
     }
     else
     {
-        std::cerr << "Error: Tried to generate from nullptr\n";
+        throw "Tried to generate from nullptr";
     }
 }
 
 std::string compiler::compile(astToken &program)
 {
+    if (settings.verbose)
+        std::cout << "Begining to compile ast to bytecode" << std::endl;
+    if (settings.verbose && settings.optimize)
+        std::cout << "Optimizations have been enabled" << std::endl;
     compiler::generate(program);
+    if (settings.verbose)
+        std::cout << "Bytecode compilation finished" << std::endl;
     return compiler::bytecode;
 }

@@ -1,6 +1,6 @@
+#pragma once
 #ifndef LEXER_HPP
 #define LEXER_HPP
-#pragma once
 
 #include <vector>
 #include <string>
@@ -33,7 +33,9 @@ enum class TokenType
     Function,
     IfStmt,
     ForLoop,
-
+    WhileLoop,
+    
+    In,
     Keyword,
     Comment,
     

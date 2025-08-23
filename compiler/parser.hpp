@@ -1,16 +1,14 @@
+#pragma once
 #ifndef PARSER_HPP
 #define PARSER_HPP
-#pragma once
 
 #include "lexer.hpp"
 #include <memory>
-#include <iostream>
 #include <vector>
 #include <string>
 #include <variant>
 #include <optional>
 #include <map>
-#include <any>
 
 enum class tokenKind
 {
@@ -19,6 +17,8 @@ enum class tokenKind
     VariableDeclaration,
     FunctionDeclaration,
     IfStmt,
+    ForLoopStmt,
+    WhileLoopStmt,
     HistoryDeclaration,
     CallExpr,
     AssignmentExpr,
@@ -29,7 +29,7 @@ enum class tokenKind
     BinaryExpr,
     ComparisonExpr,
     UnaryExpr,
-    LogicGateExpr,
+    LogicGateExpr
 };
 
 std::string generateRandomString(size_t length);
@@ -52,6 +52,7 @@ struct astToken
     std::vector<std::map<std::string, std::variant<std::shared_ptr<astToken>, std::string, float, int, std::vector<std::string>>>> properties;
     std::shared_ptr<astToken> object;
     std::shared_ptr<astToken> property;
+    std::variant<std::shared_ptr<astToken>, std::vector<std::shared_ptr<astToken>>> iterator;
     bool computed;
 };
 
@@ -81,6 +82,7 @@ public:
     std::vector<std::shared_ptr<astToken>> parse_arguments_list();
     std::vector<std::shared_ptr<astToken>> parse_arguments();
     astToken parse_for_loop_stmt();
+    astToken parse_while_loop_stmt();
     astToken parse_if_stmt(bool isELIFChain = false);
     astToken parse_and_keyword();
     astToken parse_or_keyword();

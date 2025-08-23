@@ -1,7 +1,7 @@
+#pragma once
 #ifndef COMPILER_HPP
 #define COMPILER_HPP
 
-#pragma once
 #include "parser.hpp"
 
 class compiler {
@@ -25,9 +25,10 @@ class compiler {
         void compile_member_expr(astToken &node);
         void compile_unary_expr(astToken &node);
         void compile_logicgate_expr(astToken &node);
-        void compile_if_stmt(astToken &node);
         void compile_comparison_expr(astToken &node);
-
+        void compile_if_stmt(astToken &node);
+        void compile_forloop_stmt(astToken &node);
+        void compile_whileloop_stmt(astToken &node);
 };
 
 #endif
