@@ -19,6 +19,7 @@ enum class tokenKind
     IfStmt,
     ForLoopStmt,
     WhileLoopStmt,
+    ReturnStmt,
     HistoryDeclaration,
     CallExpr,
     AssignmentExpr,
@@ -84,6 +85,7 @@ public:
     astToken parse_for_loop_stmt();
     astToken parse_while_loop_stmt();
     astToken parse_if_stmt(bool isELIFChain = false);
+    astToken parse_return_stmt();
     astToken parse_and_keyword();
     astToken parse_or_keyword();
     astToken parse_comparasion_expr();

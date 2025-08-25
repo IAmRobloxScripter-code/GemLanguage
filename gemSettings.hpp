@@ -5,6 +5,7 @@ class Settings {
 public:
     bool optimize = false;
     bool verbose = false;
+    bool benchmark = false;
     
     static Settings& get() {
         static Settings instance;

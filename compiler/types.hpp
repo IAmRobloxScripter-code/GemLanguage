@@ -8,8 +8,8 @@
 #include <functional>
 #include <variant>
 #include <map>
-
-using StringVector = std::vector<std::string>;
+#include <deque>
+using StringVector = std::deque<std::string>;
 
 template <typename T>
 class local_space;

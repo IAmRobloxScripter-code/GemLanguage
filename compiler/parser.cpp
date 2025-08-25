@@ -92,6 +92,8 @@ astToken parser::parseStmt()
         return parser::parse_if_stmt();
     case TokenType::ForLoop:
         return parser::parse_for_loop_stmt();
+    case TokenType::Return:
+        return parser::parse_return_stmt();
     default:
         return parser::parse_expr();
     };
@@ -122,6 +124,17 @@ std::string generateRandomString(size_t length)
 
     return result;
 }
+
+astToken parser::parse_return_stmt() {
+    parser::eat();
+    auto right = std::make_shared<astToken>(parser::parseStmt());
+    parser::skip_semi_colon();
+    return astToken {
+        .kind = tokenKind::ReturnStmt,
+        .right = right
+    };
+}
+
 astToken parser::parse_or_keyword()
 {
     astToken left = parser::parse_and_keyword();

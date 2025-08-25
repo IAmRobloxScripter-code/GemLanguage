@@ -56,7 +56,9 @@ std::map<std::string, TokenType> keywords = {
     {"elif", TokenType::Keyword},
     {"for", TokenType::ForLoop},
     {"while", TokenType::WhileLoop},
-    {"in", TokenType::In}};
+    {"in", TokenType::In},
+    {"return", TokenType::Return}
+};
 
 bool isStringBody(std::string x)
 {
@@ -66,6 +68,15 @@ bool isStringBody(std::string x)
 bool isWhitespace(char x)
 {
     return std::isspace(static_cast<unsigned char>(x));
+}
+
+bool isSpecialString(const std::string& str) {
+    for (char c : str) {
+        if (!std::isalnum(static_cast<unsigned char>(c))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 std::vector<lexer_token> tokenize(const std::string &sourceCode)
@@ -187,16 +198,14 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
         }
         else if (isStringBody(c))
         {
-            std::string body;
-
-            shift(src);
+            std::string body = shift(src);
 
             while (!src.empty() && src[0] != c)
             {
                 body += shift(src);
             }
-
-            shift(src);
+            
+            body += shift(src);
 
             tokens.push_back(token(body, TokenType::String));
         }

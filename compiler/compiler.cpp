@@ -180,8 +180,6 @@ void compiler::compile_member_expr(astToken &node)
     {
         compiler::concat(bytecode, compiler::spaces() + "LOAD_KEY \"" + chain[i] + "\"\n");
     }
-
-    // compiler::concat(bytecode, compiler::spaces() + "POP\n");
 }
 
 void compiler::compile_unary_expr(astToken &node)
@@ -319,9 +317,15 @@ void compiler::compile_forloop_stmt(astToken &node)
         compiler::identation--;
         compiler::concat(bytecode, compiler::spaces() + "THEN\n");
         compiler::identation++;
-        compiler::concat(bytecode, compiler::spaces() + "BREAK\n");
+        compiler::concat(bytecode, compiler::spaces() + "PUSH null\n");
+        compiler::concat(bytecode, compiler::spaces() + "RETURN\n");
         compiler::identation--;
         compiler::concat(bytecode, compiler::spaces() + "ENDIF\n");
+
+        for (std::shared_ptr<astToken> &epxr : node.body)
+        {
+            compiler::generate(epxr);
+        }
 
         compiler::concat(bytecode, compiler::spaces() + "LOAD_LOCAL " + node.params[0] + "\n");
         if (iterator.size() >= 3)
@@ -334,19 +338,20 @@ void compiler::compile_forloop_stmt(astToken &node)
         }
 
         compiler::concat(bytecode, compiler::spaces() + "ADD\n");
+        compiler::concat(bytecode, compiler::spaces() + "STORE_LOCAL " + node.params[0] + "\n");
     }
     else
     {
         // for table
     }
 
-    for (std::shared_ptr<astToken> &epxr : node.body)
-    {
-        compiler::generate(epxr);
-    }
-
     compiler::identation--;
     compiler::concat(bytecode, compiler::spaces() + "ENDLOOP\n");
+}
+
+void compiler::compile_return_stmt(astToken &node) {
+    compiler::generate(node.right);
+    compiler::concat(bytecode, compiler::spaces() + "RETURN\n");
 }
 
 void compiler::generate(astToken &node, bool isDeclaration)
@@ -360,7 +365,7 @@ void compiler::generate(astToken &node, bool isDeclaration)
     }
     case tokenKind::StringLiteral:
     {
-        compiler::concat(bytecode, compiler::spaces() + "PUSH " + "\"" + node.value + "\"\n");
+        compiler::concat(bytecode, compiler::spaces() + "PUSH " + node.value + "\n");
         break;
     }
     case tokenKind::Program:
@@ -431,6 +436,10 @@ void compiler::generate(astToken &node, bool isDeclaration)
     case tokenKind::ForLoopStmt:
     {
         compiler::compile_forloop_stmt(node);
+        break;
+    }
+    case tokenKind::ReturnStmt: {
+        compiler::compile_return_stmt(node);
         break;
     }
     default:

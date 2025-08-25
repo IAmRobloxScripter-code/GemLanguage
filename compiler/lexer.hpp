@@ -36,6 +36,7 @@ enum class TokenType
     WhileLoop,
     
     In,
+    Return,
     Keyword,
     Comment,
     

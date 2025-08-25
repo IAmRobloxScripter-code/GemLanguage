@@ -29,6 +29,7 @@ class compiler {
         void compile_if_stmt(astToken &node);
         void compile_forloop_stmt(astToken &node);
         void compile_whileloop_stmt(astToken &node);
+        void compile_return_stmt(astToken &node);
 };
 
 #endif

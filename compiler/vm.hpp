@@ -12,6 +12,7 @@
 #include <string>
 #include <functional>
 #include "native.hpp"
+#include <optional>
 /*
   PUSH X
   STORE_LOCAL X
@@ -69,35 +70,43 @@
 
 inline StringVector tokenize(std::string &src)
 {
-     std::vector<std::string> tokens;
+    StringVector tokens;
     std::string current;
     bool inQuotes = false;
 
-    for (size_t i = 0; i < src.size(); ++i) {
+    for (size_t i = 0; i < src.size(); ++i)
+    {
         char c = src[i];
 
-        if (c == '"') {
+        if (c == '"')
+        {
             inQuotes = !inQuotes;
             current += c;
         }
-        else if (c == ' ' && !inQuotes) {
-            if (!current.empty()) {
+        else if (c == ' ' && !inQuotes)
+        {
+            if (!current.empty())
+            {
                 tokens.push_back(current);
                 current.clear();
             }
         }
-        else if ((c == '\n' || c == '\r') && !inQuotes) {
-            if (!current.empty()) {
+        else if ((c == '\n' || c == '\r') && !inQuotes)
+        {
+            if (!current.empty())
+            {
                 tokens.push_back(current);
                 current.clear();
             }
         }
-        else {
+        else
+        {
             current += c;
         }
     }
 
-    if (!current.empty()) {
+    if (!current.empty())
+    {
         tokens.push_back(current);
     }
 
@@ -119,24 +128,21 @@ public:
         local_stack["false"] = false;
         local_stack["true"] = true;
         local_stack["null"] = "__NULL__";
-        
+
         local_stack["print"] = callback{
             {"type", "native-fn"},
-            {"call", function{[this](local_space<StringVector>* env)
-             {
-                 while (!env->stack.empty())
-                 {
-                     print::printValue(env->stack.back(), 0);
-                     env->stack.pop_back();
-                 }
-             }
-            }
-         }
-        };
+            {"call", function{[this](local_space<StringVector> *env)
+                              {
+                                  while (!env->stack.empty())
+                                  {
+                                      print::printValue(env->stack.back(), 0);
+                                      env->pop();
+                                  }
+                              }}}};
     }
     local_space(std::shared_ptr<local_space<T>> parent) : parent_local_space(parent) {}
 
-    local_space* resolve(std::string identifier)
+    local_space *resolve(std::string identifier)
     {
         if (local_stack.find(identifier) != local_stack.end())
         {
@@ -157,9 +163,10 @@ public:
 
     valueVariant getVariable(std::string identifier)
     {
-        local_space* env = resolve(identifier);
-        
-        if (env == nullptr) {
+        local_space *env = resolve(identifier);
+
+        if (env == nullptr)
+        {
             return resolve("null")->local_stack["null"];
         }
         return env->local_stack[identifier];
@@ -168,7 +175,7 @@ public:
     valueVariant pop()
     {
         if (stack.empty())
-            throw std::runtime_error("Stack underflow");
+            throw "Stack underflow";
         auto value = stack.back();
         stack.pop_back();
         return value;
@@ -178,7 +185,7 @@ public:
     {
         if (auto pval = std::get_if<double>(&v))
             return *pval;
-        throw std::runtime_error("Expected double value on stack");
+        throw "Expected double value on stack";
     }
 
     void add()
@@ -211,7 +218,7 @@ public:
         auto x = pop();
         double divisor = getDouble(y);
         if (divisor == 0.0f)
-            throw std::runtime_error("Division by zero");
+            throw "Division by zero";
         double result = getDouble(x) / divisor;
         stack.push_back(result);
     }
@@ -231,47 +238,53 @@ public:
         int a = static_cast<int>(getDouble(x));
         int b = static_cast<int>(getDouble(y));
         if (b == 0)
-            throw std::runtime_error("Modulo by zero");
+            throw "Modulo by zero";
         int result = a % b;
         stack.push_back(static_cast<double>(result));
     }
 
-    void equals() {
+    void equals()
+    {
         auto y = pop();
         auto x = pop();
 
         stack.push_back(y == x);
     }
 
-    void greaterThanEquals() {
+    void greaterThanEquals()
+    {
         auto y = pop();
         auto x = pop();
 
         stack.push_back(x >= y);
     }
-    
-    void lessThanEquals() {
+
+    void lessThanEquals()
+    {
         auto y = pop();
         auto x = pop();
 
         stack.push_back(x <= y);
     }
 
-    void greaterThan() {
+    void greaterThan()
+    {
         auto y = pop();
         auto x = pop();
 
         stack.push_back(x > y);
     }
 
-    void lessThan() {
+    void lessThan()
+    {
         auto y = pop();
         auto x = pop();
 
         stack.push_back(x < y);
     }
 
-    void notEqual() {
+    void notEqual()
+    {
         auto y = pop();
         auto x = pop();
 
@@ -279,7 +292,7 @@ public:
     }
 };
 
-void evalToken(StringVector &tokens, local_space<StringVector> &env);
+std::optional<bool> evalToken(StringVector &tokens, local_space<StringVector> &env);
 void eval_call(StringVector &tokens, local_space<StringVector> &env);
 
 #endif

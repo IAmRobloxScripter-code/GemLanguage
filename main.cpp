@@ -1,25 +1,24 @@
 #include "compiler/compiler.hpp"
 #include "compiler/vm.hpp"
 #include "gemSettings.hpp"
-#include <fstream>
-#include <string>
-#include <iostream>
-#include <filesystem>
 #include <algorithm>
 #include <deque>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <thread>
 
 // GGC - GENERAL GEM COMPILER
 
-std::string readFile(const std::string &path)
-{
+std::string readFile(const std::string &path) {
     if (settings.verbose)
         std::cout << "Reading file: " + path << std::endl;
 
     std::ifstream file;
     file.open(path);
 
-    if (!file.is_open())
-    {
+    if (!file.is_open()) {
         std::cerr << "Error opening the file!";
         return "";
     }
@@ -27,8 +26,7 @@ std::string readFile(const std::string &path)
     std::string s;
     std::string src;
 
-    while (getline(file, s))
-    {
+    while (getline(file, s)) {
         src += s + '\n';
     };
 
@@ -40,9 +38,7 @@ std::string readFile(const std::string &path)
     return src;
 }
 
-std::string getBytecode(std::string &src)
-{
-
+std::string getBytecode(std::string &src) {
     parser parserInstance;
     astToken ast = parserInstance.produceAST(src);
     compiler compilerInstance;
@@ -51,111 +47,131 @@ std::string getBytecode(std::string &src)
     return bytecode;
 }
 
-class flags
+/*    auto start = std::chrono::high_resolution_clock::now();
+
+    // --- Your program/code here ---
+    std::this_thread::sleep_for(std::chrono::seconds(2)); // simulate some work
+    // --------------------------------
+
+    // Record end time
+    auto end = std::chrono::high_resolution_clock::now();
+
+    // Compute duration in milliseconds
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    std::cout << "Program ran for " << duration.count() << " milliseconds.\n";*/
+/*template <typename Func>
+void benchmarkProgram(Func func)
 {
-public:
-    void runBytecode(std::string &bytecode)
-    {
-        evaluate(bytecode);
+    auto start = std::chrono::high_resolution_clock::now();
+    func();
+    auto end = std::chrono::high_resolution_clock::now();
+    auto durationNS = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
+    auto durationMCS = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    auto durationMS = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    std::cout << "Runtime: " << durationMS.count() << "ms | " << durationMCS.count() << "mcs | " <<
+durationNS.count() << "ns" << std::endl;
+}*/
+
+size_t getMemoryUsageKB() {
+    std::ifstream statm("/proc/self/status");
+    std::string line;
+    while (std::getline(statm, line)) {
+        if (line.find("VmRSS:") == 0) {
+            std::string value = line.substr(6);
+            return std::stoul(value);
+        }
+    }
+    return 0;
+}
+
+template <typename Func> void benchmarkProgram(Func func) {
+    double elapsedSum = 0;
+    double memorySum = 0;
+    int iterations = 1000;
+    for (int i = 0; i < iterations; i++) {
+        long long mem_before = static_cast<long long>(getMemoryUsageKB());
+        auto start = std::chrono::high_resolution_clock::now();
+
+        func();
+
+        auto end = std::chrono::high_resolution_clock::now();
+        long long mem_after = static_cast<long long>(getMemoryUsageKB());
+
+        std::chrono::duration<double, std::milli> elapsed = end - start;
+        long long memDelta = mem_after - mem_before;
+        if (memDelta < 0)
+            memDelta = 0;
+
+        elapsedSum += elapsed.count();
+        memorySum += memDelta;
     }
 
-    void run(std::string &src)
-    {
+    std::cout << "Average elapsed time: " << (elapsedSum / iterations) << " ms\n";
+    std::cout << "Average memory usage: " << (memorySum / iterations) << " KB\n";
+}
+
+class flags {
+  public:
+    void runBytecode(std::string &bytecode) {
+        if (settings.benchmark) {
+            benchmarkProgram([&]() { evaluate(bytecode); });
+        } else {
+            evaluate(bytecode);
+        }
+    }
+
+    void run(std::string &src) {
         std::string bytecode = getBytecode(src);
         runBytecode(bytecode);
     }
 
-    void outBytecode(std::string &src, std::string &name)
-    {
-        std::ofstream outfile(name);
-        std::string bytecode = getBytecode(src);
-        outfile << bytecode << std::endl;
-        outfile.close();
+    void outBytecode(std::string &src, std::string &name) {
+        if (settings.benchmark) {
+            benchmarkProgram([&]() {
+                std::ofstream outfile(name);
+                std::string bytecode = getBytecode(src);
+                outfile << bytecode << std::endl;
+                outfile.close();
+            });
+        } else {
+            std::ofstream outfile(name);
+            std::string bytecode = getBytecode(src);
+            outfile << bytecode << std::endl;
+            outfile.close();
+        }
     }
 };
 
-/*
-int main(int argc, char *argv[])
-{
-    flags flagContainer;
-    std::string inputFile = argc > 1 ? argv[1] : "";
-    std::string fileName = std::filesystem::path(inputFile).stem();
-
-    if (inputFile == "")
-    {
-        throw "no file provided --terminated";
-    }
-
-    if (!std::filesystem::exists(inputFile))
-    {
-        throw "file does not exist --terminated";
-    }
-
-    std::string flag = argc > 2 ? argv[2] : "";
-
-    for (int i = 4; i < argc; i++)
-    {
-    }
-
-    if (flag == "-o")
-    {
-        std::string outFile = argc > 3 ? argv[3] : fileName;
-        std::string src = readFile(inputFile);
-        flagContainer.outBytecode(src, outFile);
-    }
-    else if (flag == "-b")
-    {
-        std::string bytecode = readFile(inputFile);
-        flagContainer.runBytecode(bytecode);
-    }
-    else if (flag == "")
-    {
-        std::string src = readFile(inputFile);
-        flagContainer.run(src);
-    }
-    else
-    {
-        throw "invalid flag --terminated";
-    }
-
-    return 0;
-}
-*/
-
-std::string shiftArguments(std::deque<std::string> &src)
-{
+std::string shiftArguments(std::deque<std::string> &src) {
     std::string value = src.front();
     src.pop_front();
     return value;
 }
 
-int main(int argc, char *argv[])
-{
-    try
-    {
+int main(int argc, char *argv[]) {
+    try {
         flags flagContainer;
         std::string inputFile = argc > 1 ? argv[1] : "";
         std::string fileName = std::filesystem::path(inputFile).stem();
         std::deque<std::string> arguments;
 
-        for (int i = 0; i < argc; ++i)
-        {
+        for (int i = 0; i < argc; ++i) {
             arguments.push_back(std::string(argv[i]));
         }
         shiftArguments(arguments);
 
         // flags
         std::vector<std::string> flags;
-        if (inputFile != "")
-        {
+        if (inputFile != "") {
             shiftArguments(arguments);
         }
-        while (!arguments.empty() && arguments.front().size() > 1 && arguments.front()[0] == '-' && arguments.front()[1] != '-')
-        {
+        while (!arguments.empty() && arguments.front().size() > 1 && arguments.front()[0] == '-' &&
+               arguments.front()[1] != '-') {
             std::string flag = shiftArguments(arguments);
 
-            if (std::find(flags.begin(), flags.end(), flag) != flags.end())
-            {
+            if (std::find(flags.begin(), flags.end(), flag) != flags.end()) {
                 std::cerr << "Error: Cannot use the same flag twice\n";
                 return 0;
             }
@@ -164,50 +180,39 @@ int main(int argc, char *argv[])
         }
         std::string outFile = arguments.empty() ? fileName + ".o" : arguments.front();
 
-        if (outFile == arguments.front() && outFile[0] != '-' && outFile[1] != '-')
-        {
+        if (outFile == arguments.front() && outFile[0] != '-' && outFile[1] != '-') {
             shiftArguments(arguments);
-        }
-        else
-        {
+        } else {
             outFile = fileName + ".o";
         }
 
-        while (!arguments.empty() && arguments.front().size() > 1 && arguments.front()[0] == '-' && arguments.front()[1] == '-')
-        {
+        while (!arguments.empty() && arguments.front().size() > 1 && arguments.front()[0] == '-' &&
+               arguments.front()[1] == '-') {
             std::string flag = shiftArguments(arguments);
-            if (flag == "--verbose")
-            {
+            if (flag == "--verbose") {
                 settings.verbose = true;
-            }
-            else if (flag == "--optimize")
-            {
+            } else if (flag == "--optimize") {
                 settings.optimize = true;
+            } else if (flag == "--benchmark") {
+                settings.benchmark = true;
             }
         }
 
-        for (std::string &flag : flags)
-        {
-            if (flag == "-b")
-            {
+        for (std::string &flag : flags) {
+            if (flag == "-b") {
                 std::string src = readFile(inputFile);
                 flagContainer.runBytecode(src);
-            }
-            else if (flag == "-o")
-            {
+            } else if (flag == "-o") {
                 std::string src = readFile(inputFile);
                 flagContainer.outBytecode(src, outFile);
             }
         }
 
-        if (flags.empty())
-        {
+        if (flags.empty()) {
             std::string src = readFile(inputFile);
             flagContainer.run(src);
         }
-    }
-    catch (const char* msg)
-    {
+    } catch (const char *msg) {
         std::cerr << "Error: " << msg << "\n";
         return 1;
     }
