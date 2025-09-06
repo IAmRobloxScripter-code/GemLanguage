@@ -38,41 +38,14 @@ std::string readFile(const std::string &path) {
     return src;
 }
 
-std::string getBytecode(std::string &src) {
+std::string getBytecode(std::string &src, const std::filesystem::path& file) {
     parser parserInstance;
     astToken ast = parserInstance.produceAST(src);
     compiler compilerInstance;
-    std::string bytecode = compilerInstance.compile(ast);
+    std::string bytecode = compilerInstance.compile(ast, file);
 
     return bytecode;
 }
-
-/*    auto start = std::chrono::high_resolution_clock::now();
-
-    // --- Your program/code here ---
-    std::this_thread::sleep_for(std::chrono::seconds(2)); // simulate some work
-    // --------------------------------
-
-    // Record end time
-    auto end = std::chrono::high_resolution_clock::now();
-
-    // Compute duration in milliseconds
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "Program ran for " << duration.count() << " milliseconds.\n";*/
-/*template <typename Func>
-void benchmarkProgram(Func func)
-{
-    auto start = std::chrono::high_resolution_clock::now();
-    func();
-    auto end = std::chrono::high_resolution_clock::now();
-    auto durationNS = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start);
-    auto durationMCS = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    auto durationMS = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-    std::cout << "Runtime: " << durationMS.count() << "ms | " << durationMCS.count() << "mcs | " <<
-durationNS.count() << "ns" << std::endl;
-}*/
 
 size_t getMemoryUsageKB() {
     std::ifstream statm("/proc/self/status");
@@ -122,22 +95,22 @@ class flags {
         }
     }
 
-    void run(std::string &src) {
-        std::string bytecode = getBytecode(src);
+    void run(std::string &src, const std::filesystem::path& file) {
+        std::string bytecode = getBytecode(src, file);
         runBytecode(bytecode);
     }
 
-    void outBytecode(std::string &src, std::string &name) {
+    void outBytecode(std::string &src, std::string &name, const std::filesystem::path& file) {
         if (settings.benchmark) {
             benchmarkProgram([&]() {
+                std::string bytecode = getBytecode(src, file);
                 std::ofstream outfile(name);
-                std::string bytecode = getBytecode(src);
                 outfile << bytecode << std::endl;
                 outfile.close();
             });
         } else {
+            std::string bytecode = getBytecode(src, file);
             std::ofstream outfile(name);
-            std::string bytecode = getBytecode(src);
             outfile << bytecode << std::endl;
             outfile.close();
         }
@@ -204,13 +177,13 @@ int main(int argc, char *argv[]) {
                 flagContainer.runBytecode(src);
             } else if (flag == "-o") {
                 std::string src = readFile(inputFile);
-                flagContainer.outBytecode(src, outFile);
+                flagContainer.outBytecode(src, outFile, std::filesystem::path(inputFile));
             }
         }
 
         if (flags.empty()) {
             std::string src = readFile(inputFile);
-            flagContainer.run(src);
+            flagContainer.run(src, std::filesystem::path(inputFile));
         }
     } catch (const char *msg) {
         std::cerr << "Error: " << msg << "\n";

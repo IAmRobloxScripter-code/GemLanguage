@@ -1,11 +1,21 @@
 function main :
-  PUSH "lol"
+  PUSH 3.14
+  STORE_LOCAL pi
+  function add x y :
+    LOAD_LOCAL x
+    LOAD_LOCAL y
+    ADD
+    RETURN
+  RET
+  STORE_LOCAL add
 
-  STORE_LOCAL x
-  LOAD_LOCAL x
-  LOAD_KEY "length"
+  PUSH 5
+  PUSH 10
+  LOAD_LOCAL add
   CALL
-  LOAD_LOCAL print
+  LOAD_LOCAL console
+  PUSH "out"
+  LOAD_KEY
   CALL
 RET
 STORE_LOCAL main

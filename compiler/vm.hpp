@@ -2,17 +2,17 @@
 #ifndef VM_HPP
 #define VM_HPP
 
-#include <iostream>
-#include <vector>
-#include <memory>
-#include <cmath>
-#include <sstream>
-#include <map>
-#include <variant>
-#include <string>
-#include <functional>
 #include "native.hpp"
+#include <cmath>
+#include <functional>
+#include <iostream>
+#include <map>
+#include <memory>
 #include <optional>
+#include <sstream>
+#include <string>
+#include <variant>
+#include <vector>
 /*
   PUSH X
   STORE_LOCAL X
@@ -101,7 +101,15 @@ inline StringVector tokenize(std::string &src)
         }
         else
         {
-            current += c;
+            if (c == '\\' && inQuotes && i + 1 < src.size())
+            {
+                current += src[i + 1];
+                ++i;
+            }
+            else
+            {
+                current += c;
+            }
         }
     }
 
@@ -115,10 +123,9 @@ inline StringVector tokenize(std::string &src)
 
 void evaluate(std::string &source);
 
-template <typename T>
-class local_space
+template <typename T> class local_space
 {
-public:
+  public:
     stackType stack;
     localStackType local_stack;
     std::shared_ptr<local_space<T>> parent_local_space;
@@ -128,19 +135,11 @@ public:
         local_stack["false"] = false;
         local_stack["true"] = true;
         local_stack["null"] = "__NULL__";
-
-        local_stack["print"] = callback{
-            {"type", "native-fn"},
-            {"call", function{[this](local_space<StringVector> *env)
-                              {
-                                  while (!env->stack.empty())
-                                  {
-                                      print::printValue(env->stack.back(), 0);
-                                      env->pop();
-                                  }
-                              }}}};
     }
-    local_space(std::shared_ptr<local_space<T>> parent) : parent_local_space(parent) {}
+    local_space(std::shared_ptr<local_space<T>> parent)
+        : parent_local_space(parent)
+    {
+    }
 
     local_space *resolve(std::string identifier)
     {
@@ -175,8 +174,8 @@ public:
     valueVariant pop()
     {
         if (stack.empty())
-            throw "Stack underflow";
-        auto value = stack.back();
+            throw std::runtime_error("Stack underflow");
+        valueVariant value = std::move(stack.back());
         stack.pop_back();
         return value;
     }
@@ -192,6 +191,21 @@ public:
     {
         auto y = pop();
         auto x = pop();
+
+        if (std::holds_alternative<std::string>(x) &&
+            std::holds_alternative<std::string>(y))
+        {
+            (std::get<std::string>(x)).erase(0, 1);
+            (std::get<std::string>(x))
+                .erase((std::get<std::string>(x)).size() - 1, 1);
+            (std::get<std::string>(y)).erase(0, 1);
+            (std::get<std::string>(y))
+                .erase((std::get<std::string>(y)).size() - 1, 1);
+            stack.push_back("\"" + std::get<std::string>(x) +
+                            std::get<std::string>(y) + "\"");
+            return;
+        }
+
         double result = getDouble(x) + getDouble(y);
         stack.push_back(result);
     }
@@ -292,7 +306,8 @@ public:
     }
 };
 
-std::optional<bool> evalToken(StringVector &tokens, local_space<StringVector> &env);
+std::optional<bool> evalToken(
+    StringVector &tokens, local_space<StringVector> &env);
 void eval_call(StringVector &tokens, local_space<StringVector> &env);
 
 #endif

@@ -1,13 +1,12 @@
 #include "lexer.hpp"
 
-#include <iostream>
-#include <sstream>
 #include <cstring>
-#include <vector>
-#include <variant>
-#include <map>
-#include "prettyprint.hpp"
 #include <deque>
+#include <iostream>
+#include <map>
+#include <sstream>
+#include <variant>
+#include <vector>
 
 std::vector<std::string> splitString(const std::string &sourceCode)
 {
@@ -44,7 +43,8 @@ bool isNumber(std::string x)
 
 bool isAlpha(std::string x)
 {
-    std::string matches = "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_";
+    std::string matches =
+        "qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM_";
     return matches.find(x) != std::string::npos;
 }
 
@@ -56,8 +56,12 @@ std::map<std::string, TokenType> keywords = {
     {"elif", TokenType::Keyword},
     {"for", TokenType::ForLoop},
     {"while", TokenType::WhileLoop},
+    {"continue", TokenType::Keyword},
+    {"break", TokenType::Keyword},
     {"in", TokenType::In},
-    {"return", TokenType::Return}
+    {"return", TokenType::Return},
+    {"reflect", TokenType::Reflect},
+    {"shine", TokenType::Shine},
 };
 
 bool isStringBody(std::string x)
@@ -70,9 +74,12 @@ bool isWhitespace(char x)
     return std::isspace(static_cast<unsigned char>(x));
 }
 
-bool isSpecialString(const std::string& str) {
-    for (char c : str) {
-        if (!std::isalnum(static_cast<unsigned char>(c))) {
+bool isSpecialString(const std::string &str)
+{
+    for (char c : str)
+    {
+        if (!std::isalnum(static_cast<unsigned char>(c)))
+        {
             return true;
         }
     }
@@ -130,7 +137,8 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
             {
                 std::string op = shift(src);
                 shift(src);
-                tokens.push_back(token(op + "=", TokenType::ComparisonOperator));
+                tokens.push_back(
+                    token(op + "=", TokenType::ComparisonOperator));
                 continue;
             }
 
@@ -148,8 +156,17 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
             tokens.push_back(token(shift(src), TokenType::Equals));
         }
 
-        else if (c == "+" || c == "-" || c == "*" || c == "/" || c == "^" || c == "%" || c == "!")
+        else if (c == "+" || c == "-" || c == "*" || c == "/" || c == "^" ||
+                 c == "%" || c == "!")
         {
+            if (src[1] == "=")
+            {
+                std::string op = shift(src);
+                shift(src);
+                tokens.push_back(token(op + "=", TokenType::Equals));
+
+                continue;
+            }
             tokens.push_back(token(shift(src), TokenType::BinaryOperator));
         }
 
@@ -202,9 +219,19 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode)
 
             while (!src.empty() && src[0] != c)
             {
-                body += shift(src);
+                std::string ch = shift(src);
+
+                if (ch == "\\") {
+                    if (src[0] == "n" || src[0] == "t" || src[0] == "r") {
+                        body += "\\" + shift(src);
+                    } else {
+                        body += "\\" + shift(src);
+                    }
+                } else {
+                    body += ch;
+                }
             }
-            
+
             body += shift(src);
 
             tokens.push_back(token(body, TokenType::String));

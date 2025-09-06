@@ -3,19 +3,20 @@
 #define COMPILER_HPP
 
 #include "parser.hpp"
+#include <filesystem>
 
 class compiler {
     public:
-        static std::string bytecode;
-        static int identation;
-        std::string compile(astToken &program);
+        std::string bytecode;
+        int identation;
+        std::string compile(astToken &program, const std::filesystem::path& file);
         std::string spaces();
 
         void concat(std::string &bytecode, std::string value);
         void generate(astToken &node, bool isDeclaration = false);
         void generate(std::shared_ptr<astToken> &node, bool isDeclaration = false);
         void compile_var_declaration(astToken &node);
-        void compile_program(astToken &node);
+        void compile_program(astToken &node, bool includeMain = true);
         void compile_binary_expr(astToken &node);
         void compile_function_declaration(astToken &node, bool isDeclaration = false);
         void compile_call_expr(astToken &node);
@@ -30,6 +31,7 @@ class compiler {
         void compile_forloop_stmt(astToken &node);
         void compile_whileloop_stmt(astToken &node);
         void compile_return_stmt(astToken &node);
+        void compile_reflect(astToken &node);
 };
 
 #endif

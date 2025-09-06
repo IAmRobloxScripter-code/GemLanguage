@@ -1,3 +1,20 @@
-var x = {"GEM", "LOL"}
+##*var i = 500;
+while i > 0 {
+    i -= 1
+    console.out(i)
+}
+console.out("END")*##
 
-print(x.length())
+##*
+var i = 0
+
+for (index) in (0, 5) {
+    i += 1
+}
+
+console.out("result:", i)
+*##
+
+reflect "./module.gem"
+
+console.out(add(5, 10))

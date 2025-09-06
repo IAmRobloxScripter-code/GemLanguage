@@ -30,7 +30,10 @@ enum class tokenKind
     BinaryExpr,
     ComparisonExpr,
     UnaryExpr,
-    LogicGateExpr
+    LogicGateExpr,
+    Keyword,
+    Import,
+    Export,
 };
 
 std::string generateRandomString(size_t length);
@@ -90,6 +93,8 @@ public:
     astToken parse_or_keyword();
     astToken parse_comparasion_expr();
     astToken parse_unary_expr();
+    astToken parse_reflect();
+    astToken parse_shine();
 };
 
 #endif

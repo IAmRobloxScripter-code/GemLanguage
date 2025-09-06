@@ -34,6 +34,9 @@ enum class TokenType
     IfStmt,
     ForLoop,
     WhileLoop,
+
+    Reflect,
+    Shine,
     
     In,
     Return,
