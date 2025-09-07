@@ -91,7 +91,7 @@ void eval_store_local(StringVector &tokens, local_space<StringVector> &env) {
     shiftTKS(tokens);
     std::string identifier = shiftTKS(tokens);
     auto scope = env.resolve(identifier);
-    
+
     if (scope == nullptr) {
         env.local_stack[identifier] = shiftStack(env);
         return;
@@ -135,7 +135,7 @@ void eval_call(StringVector &tokens, local_space<StringVector> &env) {
             std::any_cast<std::shared_ptr<local_space<StringVector>>>(
                 declarationAny);
 
-        std::shared_ptr<local_space<StringVector>> scope = declaration;
+        std::shared_ptr<local_space<StringVector>> scope(declaration);
 
         auto body = std::get<StringVector>(fn.at("body"));
         auto params = std::get<StringVector>(fn.at("params"));
@@ -388,14 +388,13 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
 
     // parsing labels over
     // evaluating now
-
-    local_space<StringVector> scope(std::make_shared<local_space<StringVector>>(env));
+    std::shared_ptr<local_space<StringVector>> scope(&env);
 
     while (!ast.condition.empty()) {
-        evalToken(ast.condition, scope);
+        evalToken(ast.condition, *scope);
     }
 
-    auto result = shiftStack(scope);
+    auto result = shiftStack(*scope);
     bool shouldReturn = false;
 
     if (isTruthy(result)) {
@@ -407,16 +406,16 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
             if (ast.body[0] == "CONTINUE") {
                 shouldReturn = true;
                 shiftTKS(ast.body);
-                scope.stack.push_back("__CONTINUE__");
+                scope->stack.push_back("__CONTINUE__");
                 break;
             }
             if (ast.body[0] == "BREAK") {
-                scope.stack.push_back("__BREAK__");
+                scope->stack.push_back("__BREAK__");
 
                 shouldReturn = true;
                 break;
             }
-            std::optional<bool> doReturn = evalToken(ast.body, scope);
+            std::optional<bool> doReturn = evalToken(ast.body, *scope);
             if (doReturn == true) {
                 shouldReturn = true;
                 break;
@@ -428,10 +427,10 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
         if (ast.elifLabels) {
             for (auto &elifNode : *ast.elifLabels) {
                 while (!elifNode->condition.empty()) {
-                    evalToken(elifNode->condition, scope);
+                    evalToken(elifNode->condition, *scope);
                 }
 
-                auto elifResult = shiftStack(scope);
+                auto elifResult = shiftStack(*scope);
                 if (isTruthy(elifResult)) {
                     foundResult = true;
                     while (!elifNode->body.empty()) {
@@ -442,18 +441,18 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
                         if (elifNode->body[0] == "CONTINUE") {
                             shouldReturn = true;
                             shiftTKS(elifNode->body);
-                            scope.stack.push_back("__CONTINUE__");
+                            scope->stack.push_back("__CONTINUE__");
 
                             break;
                         }
                         if (elifNode->body[0] == "BREAK") {
-                            scope.stack.push_back("__BREAK__");
+                            scope->stack.push_back("__BREAK__");
 
                             shouldReturn = true;
                             break;
                         }
                         std::optional<bool> doReturn =
-                            evalToken(elifNode->body, scope);
+                            evalToken(elifNode->body, *scope);
                         if (doReturn == true) {
                             shouldReturn = true;
                             break;
@@ -473,18 +472,18 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
                 }
                 if ((*ast.elseBody)[0] == "CONTINUE") {
                     shiftTKS(*ast.elseBody);
-                    scope.stack.push_back("__CONTINUE__");
+                    scope->stack.push_back("__CONTINUE__");
 
                     shouldReturn = true;
                     break;
                 }
                 if ((*ast.elseBody)[0] == "BREAK") {
-                    scope.stack.push_back("__BREAK__");
+                    scope->stack.push_back("__BREAK__");
 
                     shouldReturn = true;
                     break;
                 }
-                std::optional<bool> doReturn = evalToken(*ast.elseBody, scope);
+                std::optional<bool> doReturn = evalToken(*ast.elseBody, *scope);
                 if (doReturn == true) {
                     shouldReturn = true;
                     break;
@@ -494,10 +493,10 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
     }
 
     if (shouldReturn) {
-        if (scope.stack.size() == 0) {
+        if (scope->stack.size() == 0) {
             env.stack.push_back(env.getVariable("null"));
         } else {
-            env.stack.push_back(shiftStack(scope));
+            env.stack.push_back(shiftStack(*scope));
         }
         return true;
     }
@@ -571,7 +570,8 @@ bool eval_loop_stmt(StringVector &tokens, local_space<StringVector> &env) {
     shiftTKS(tokens);
 
     // body eval
-    local_space<StringVector> scope(std::make_shared<local_space<StringVector>>(env));
+    std::shared_ptr<local_space<StringVector>> scope(env);
+
     bool shouldReturn = false;
 
     auto evalBody = [&body, &shouldReturn, &scope]() {
@@ -588,14 +588,14 @@ bool eval_loop_stmt(StringVector &tokens, local_space<StringVector> &env) {
             if (loopBody[0] == "BREAK") {
                 break;
             }
-            std::optional<bool> doReturn = evalToken(loopBody, scope);
+            std::optional<bool> doReturn = evalToken(loopBody, *scope);
 
-            if (doReturn == true && scope.stack.back() == "__CONTINUE__") {
-                shiftStack(scope);
+            if (doReturn == true && scope->stack.back() == "__CONTINUE__") {
+                shiftStack(*scope);
                 break;
             }
 
-            if (doReturn == true && scope.stack.back() == "__BREAK__") {
+            if (doReturn == true && scope->stack.back() == "__BREAK__") {
                 break;
             }
 
@@ -606,16 +606,16 @@ bool eval_loop_stmt(StringVector &tokens, local_space<StringVector> &env) {
         }
     };
 
-    auto null = scope.getVariable("null");
-    while (scope.stack.size() == 0) {
+    auto null = scope->getVariable("null");
+    while (scope->stack.size() == 0) {
         evalBody();
     }
 
     if (shouldReturn) {
-        if (scope.stack.size() == 0) {
+        if (scope->stack.size() == 0) {
             env.stack.push_back(env.getVariable("null"));
         } else {
-            env.stack.push_back(shiftStack(scope));
+            env.stack.push_back(shiftStack(*scope));
         }
         return true;
     }
