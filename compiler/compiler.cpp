@@ -31,7 +31,7 @@ void compiler::compile_program(astToken &node, bool includeMain) {
     if (includeMain) {
         compiler::identation--;
         compiler::concat(bytecode, "RET\n");
-        compiler::concat(bytecode, "STORE_LOCAL main");
+        compiler::concat(bytecode, "DECLARE_LOCAL main");
     }
 }
 
@@ -41,7 +41,7 @@ void compiler::compile_var_declaration(astToken &node) {
     compiler::generate(node.right, true);
     compiler::concat(bytecode, "\n");
     compiler::concat(
-        bytecode, compiler::spaces() + "STORE_LOCAL " + identifier + "\n");
+        bytecode, compiler::spaces() + "DECLARE_LOCAL " + identifier + "\n");
 }
 
 void compiler::compile_binary_expr(astToken &node) {
@@ -84,11 +84,12 @@ void compiler::compile_function_declaration(
     compiler::concat(bytecode, compiler::spaces() + "RET\n");
     if (!isDeclaration) {
         compiler::concat(
-            bytecode, compiler::spaces() + "STORE_LOCAL " + node.name + "\n");
+            bytecode, compiler::spaces() + "DECLARE_LOCAL " + node.name + "\n");
     }
 }
 
 void compiler::compile_call_expr(astToken &node) {
+    std::reverse(node.args.begin(), node.args.end());
     for (std::shared_ptr<astToken> &param : node.args) {
         compiler::generate(param);
     }
@@ -301,7 +302,7 @@ void compiler::compile_forloop_stmt(astToken &node) {
         compiler::concat(bytecode, compiler::spaces() + "SUB\n");
 
         compiler::concat(bytecode,
-            compiler::spaces() + "STORE_LOCAL " + node.params[0] + "\n");
+            compiler::spaces() + "DECLARE_LOCAL " + node.params[0] + "\n");
 
         compiler::concat(bytecode, compiler::spaces() + "LOOP\n");
         compiler::identation++;
@@ -346,7 +347,7 @@ void compiler::compile_forloop_stmt(astToken &node) {
 
         compiler::generate(std::get<std::shared_ptr<astToken>>(node.iterator));
         compiler::concat(bytecode,
-            compiler::spaces() + "STORE_LOCAL " + fakeMemoryPtr + "\n");
+            compiler::spaces() + "DECLARE_LOCAL " + fakeMemoryPtr + "\n");
         compiler::concat(bytecode, compiler::spaces() + "LOOP\n");
         compiler::identation++;
 
@@ -355,9 +356,9 @@ void compiler::compile_forloop_stmt(astToken &node) {
         compiler::concat(bytecode, compiler::spaces() + "CALL\n");
 
         compiler::concat(bytecode,
-            compiler::spaces() + "STORE_LOCAL " + node.params[0] + "\n");
+            compiler::spaces() + "DECLARE_LOCAL " + node.params[0] + "\n");
         compiler::concat(bytecode,
-            compiler::spaces() + "STORE_LOCAL " + node.params[1] + "\n");
+            compiler::spaces() + "DECLARE_LOCAL " + node.params[1] + "\n");
 
         compiler::concat(bytecode, compiler::spaces() + "IF\n");
         compiler::identation++;
@@ -482,6 +483,28 @@ void compiler::compile_whileloop_stmt(astToken &node) {
     compiler::concat(bytecode, compiler::spaces() + "ENDLOOP\n");
 }
 
+void compiler::compile_extern(astToken &node) {
+    auto refPath = node.right->value;
+    refPath.erase(0, 1);
+    refPath.erase(refPath.size() - 1, 1);
+    auto path = resolveImport(fileRoot, refPath);
+    auto params = node.params;
+    std::reverse(params.begin(), params.end());
+
+    for (auto &param : params) {
+        compiler::concat(bytecode, compiler::spaces() + "PUSH " + param + "\n");
+    }
+
+    compiler::concat(
+        bytecode, compiler::spaces() + "PUSH " + node.value + "\n");
+    compiler::concat(bytecode,
+        compiler::spaces() + "PUSH " +
+            std::to_string(static_cast<int>(params.size())) + "\n");
+    compiler::concat(bytecode,
+        compiler::spaces() + "DEFINE " + node.left->value + " " +
+            path.string() + "\n");
+}
+
 void compiler::generate(astToken &node, bool isDeclaration) {
     switch (node.kind) {
     case tokenKind::NumberLiteral: {
@@ -569,6 +592,15 @@ void compiler::generate(astToken &node, bool isDeclaration) {
     }
     case tokenKind::WhileLoopStmt: {
         compiler::compile_whileloop_stmt(node);
+        break;
+    }
+    case tokenKind::Extern: {
+        compiler::compile_extern(node);
+        break;
+    }
+    case tokenKind::Delete: {
+        compiler::concat(
+            bytecode, compiler::spaces() + "DELETE " + node.value + "\n");
         break;
     }
     default:

@@ -20,7 +20,6 @@ enum class tokenKind
     ForLoopStmt,
     WhileLoopStmt,
     ReturnStmt,
-    HistoryDeclaration,
     CallExpr,
     AssignmentExpr,
     MemberExpr,
@@ -34,6 +33,8 @@ enum class tokenKind
     Keyword,
     Import,
     Export,
+    Extern,
+    Delete,
 };
 
 std::string generateRandomString(size_t length);
@@ -95,6 +96,7 @@ public:
     astToken parse_unary_expr();
     astToken parse_reflect();
     astToken parse_shine();
+    astToken parse_extern();
 };
 
 #endif

@@ -83,13 +83,23 @@ astToken parser::parseStmt() {
         return parser::parse_while_loop_stmt();
     case TokenType::Return:
         return parser::parse_return_stmt();
-    case TokenType::Keyword:
-        return astToken{
-            .kind = tokenKind::Keyword, .value = parser::eat().value};
+    case TokenType::Keyword: {
+        auto value = parser::eat().value;
+        parser::skip_semi_colon();
+        return astToken{.kind = tokenKind::Keyword, .value = value};
+    }
     case TokenType::Reflect:
         return parser::parse_reflect();
     case TokenType::Shine:
         return parser::parse_shine();
+    case TokenType::Extern:
+        return parser::parse_extern();
+    case TokenType::Delete: {
+        parser::eat();
+        auto value = parser::eat().value;
+        parser::skip_semi_colon();
+        return astToken{.kind = tokenKind::Delete, .value = value};
+    }
     default:
         return parser::parse_expr();
     };
@@ -110,9 +120,39 @@ std::string getFunctionName() {
     }
 }
 
+astToken parser::parse_extern() {
+    parser::eat();
+
+    astToken identifier = parser::parse_primary_expr();
+    parser::expect(TokenType::DoubleColon);
+    astToken path = parser::parse_primary_expr();
+    parser::expect(TokenType::DoubleColon);
+
+    std::vector<std::shared_ptr<astToken>> args = parser::parse_arguments();
+    std::vector<std::string> inputTypes;
+
+    for (std::shared_ptr<astToken> value : args) {
+        inputTypes.push_back(value.get()->value);
+    }
+
+    parser::expect(TokenType::Arrow);
+
+    astToken returnType = parser::parse_primary_expr();
+
+    parser::skip_semi_colon();
+
+    return astToken{.kind = tokenKind::Extern,
+        .value = returnType.value,
+        .right = std::make_shared<astToken>(path),
+        .left = std::make_shared<astToken>(identifier),
+        .params = inputTypes};
+}
+
 astToken parser::parse_shine() {
     parser::eat();
     astToken stmt = parser::parseStmt();
+    parser::skip_semi_colon();
+
     return astToken{
         .kind = tokenKind::Export, .left = std::make_shared<astToken>(stmt)};
 }
@@ -136,11 +176,14 @@ astToken parser::parse_reflect() {
         }
 
         parser::expect(TokenType::CloseBrace);
+        parser::skip_semi_colon();
 
         return astToken{.kind = tokenKind::Import,
             .left = std::make_shared<astToken>(path),
             .params = include};
     } else {
+        parser::skip_semi_colon();
+
         return astToken{.kind = tokenKind::Import,
             .left = std::make_shared<astToken>(path)};
     }
@@ -430,7 +473,7 @@ astToken parser::parse_comparasion_expr() {
     astToken left = parser::parse_object_expr();
 
     while (parser::at().value == ">" || parser::at().value == "<" ||
-           parser::at().value == ">=" || parser::at().value == "<" ||
+           parser::at().value == ">=" || parser::at().value == "<=" ||
            parser::at().value == "==" || parser::at().value == "!=") {
         std::string op = parser::eat().value;
         astToken right = parser::parse_object_expr();
@@ -779,6 +822,7 @@ astToken parser::parse_primary_expr() {
         return value;
     };
     default:
-        throw "Invalid parsing: " + parser::at().value;
+        return astToken{
+            .kind = tokenKind::Identifier, .value = parser::eat().value};
     }
 }

@@ -37,11 +37,15 @@ enum class TokenType
 
     Reflect,
     Shine,
+    Extern,
     
     In,
     Return,
     Keyword,
     Comment,
+
+    Arrow,
+    Delete,
     
     EndOfFile
 };

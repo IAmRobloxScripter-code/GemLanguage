@@ -1,14 +1,3 @@
-##*var i = 500;
-while i > 0 {
-    i -= 1
-    console.out(i)
-}
-console.out("END")*##
+reflect "std.gem";
 
-var i = 0
-
-for (index) in (0, 5) {
-    i+=1;
-}
-
-console.out("result:", i)
+console.out(math.sin(5))

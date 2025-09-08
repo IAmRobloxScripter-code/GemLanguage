@@ -13,13 +13,6 @@
 #include <string>
 #include <variant>
 #include <vector>
-
-template <typename T>
-struct is_shared_ptr : std::false_type {};
-
-template <typename T>
-struct is_shared_ptr<std::shared_ptr<T>> : std::true_type {};
-
 /*
   PUSH X
   STORE_LOCAL X
@@ -143,8 +136,8 @@ template <typename T> class local_space
         local_stack["true"] = true;
         local_stack["null"] = "__NULL__";
     }
-    local_space(local_space<StringVector>& parent)
-        : parent_local_space(std::make_shared<local_space<StringVector>>(&parent))
+    local_space(std::shared_ptr<local_space<T>> parent)
+        : parent_local_space(parent)
     {
     }
 
@@ -161,7 +154,7 @@ template <typename T> class local_space
                 return nullptr;
             }
             else
-            {   
+            {
                 return parent_local_space->resolve(identifier);
             }
         }

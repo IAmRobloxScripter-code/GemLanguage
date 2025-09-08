@@ -1,0 +1,46 @@
+shine extern abs   :: "math.so" :: (double) -> double;
+shine extern sin   :: "math.so" :: (double) -> double;
+shine extern cos   :: "math.so" :: (double) -> double;
+shine extern tan   :: "math.so" :: (double) -> double;
+shine extern asin  :: "math.so" :: (double) -> double;
+shine extern acos  :: "math.so" :: (double) -> double;
+shine extern atan  :: "math.so" :: (double) -> double;
+shine extern simplelog   :: "math.so" :: (double) -> double;
+shine extern complexlog   :: "math.so" :: (double, double) -> double;
+shine extern floor :: "math.so" :: (double) -> double;
+shine extern round :: "math.so" :: (double) -> double;
+shine extern ceil  :: "math.so" :: (double) -> double;
+
+shine var math = {
+    abs   : abs,
+    sin   : sin,
+    cos   : cos,
+    tan   : tan,
+    asin  : asin,
+    acos  : acos,
+    atan  : atan,
+    log   : fn(x, y) {
+        if y == null
+            return simplelog(x);
+        else 
+            return complexlog(x, y);
+    },
+    floor : floor,
+    round : round,
+    ceil  : ceil,
+    e: 2.71828182845904523536,
+    pi: 16 * atan(1 / 5) - 4 * atan(1 / 239)
+}
+
+shine delete abs;
+shine delete sin;
+shine delete cos;
+shine delete tan;
+shine delete asin;
+shine delete acos;
+shine delete atan;
+shine delete simplelog;
+shine delete complexlog;
+shine delete floor;
+shine delete round;
+shine delete ceil;

@@ -1,5 +1,0 @@
-shine pi = 3.14
-
-shine fn add(x, y) {
-    return x + y
-}

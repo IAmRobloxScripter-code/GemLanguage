@@ -6,32 +6,34 @@
 #include <filesystem>
 
 class compiler {
-    public:
-        std::string bytecode;
-        int identation;
-        std::string compile(astToken &program, const std::filesystem::path& file);
-        std::string spaces();
+  public:
+    std::string bytecode;
+    int identation;
+    std::string compile(astToken &program, const std::filesystem::path &file);
+    std::string spaces();
 
-        void concat(std::string &bytecode, std::string value);
-        void generate(astToken &node, bool isDeclaration = false);
-        void generate(std::shared_ptr<astToken> &node, bool isDeclaration = false);
-        void compile_var_declaration(astToken &node);
-        void compile_program(astToken &node, bool includeMain = true);
-        void compile_binary_expr(astToken &node);
-        void compile_function_declaration(astToken &node, bool isDeclaration = false);
-        void compile_call_expr(astToken &node);
-        void compile_identifier(astToken &node);
-        void compile_assignment_expr(astToken &node);
-        void compile_object_literal(astToken &node);
-        void compile_member_expr(astToken &node);
-        void compile_unary_expr(astToken &node);
-        void compile_logicgate_expr(astToken &node);
-        void compile_comparison_expr(astToken &node);
-        void compile_if_stmt(astToken &node);
-        void compile_forloop_stmt(astToken &node);
-        void compile_whileloop_stmt(astToken &node);
-        void compile_return_stmt(astToken &node);
-        void compile_reflect(astToken &node);
+    void concat(std::string &bytecode, std::string value);
+    void generate(astToken &node, bool isDeclaration = false);
+    void generate(std::shared_ptr<astToken> &node, bool isDeclaration = false);
+    void compile_var_declaration(astToken &node);
+    void compile_program(astToken &node, bool includeMain = true);
+    void compile_binary_expr(astToken &node);
+    void compile_function_declaration(
+        astToken &node, bool isDeclaration = false);
+    void compile_call_expr(astToken &node);
+    void compile_identifier(astToken &node);
+    void compile_assignment_expr(astToken &node);
+    void compile_object_literal(astToken &node);
+    void compile_member_expr(astToken &node);
+    void compile_unary_expr(astToken &node);
+    void compile_logicgate_expr(astToken &node);
+    void compile_comparison_expr(astToken &node);
+    void compile_if_stmt(astToken &node);
+    void compile_forloop_stmt(astToken &node);
+    void compile_whileloop_stmt(astToken &node);
+    void compile_return_stmt(astToken &node);
+    void compile_reflect(astToken &node);
+    void compile_extern(astToken &node);
 };
 
 #endif

@@ -51,6 +51,8 @@ inline void printValue(const valueVariant &value, int depth)
             else if constexpr (std::is_same_v<T, callback>)
             {
                 std::cout << "<function>";
+            } else if constexpr (std::is_same_v<T, FFI_Func>) {
+                std::cout << "<C/C++ function>";
             }
             else
             {

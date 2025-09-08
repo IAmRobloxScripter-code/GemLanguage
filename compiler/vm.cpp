@@ -1,14 +1,24 @@
 #include "vm.hpp"
-
 #include "../gemSettings.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cxxabi.h>
+#include <ffi.h>
+#include <fstream>
 #include <functional>
 #include <iostream>
 #include <map>
 #include <optional>
 #include <variant>
+
+#if defined(_WIN32) || defined(_WIN64)
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+#include <cstring>
+
+std::unordered_map<std::string, void *> libraryPointers;
 
 callback makeNative(std::function<void(local_space<StringVector> *)> fn) {
     return callback{
@@ -100,6 +110,13 @@ void eval_store_local(StringVector &tokens, local_space<StringVector> &env) {
     scope->local_stack[identifier] = shiftStack(env);
 }
 
+void eval_declare_local(StringVector &tokens, local_space<StringVector> &env) {
+    shiftTKS(tokens);
+    std::string identifier = shiftTKS(tokens);
+
+    env.local_stack[identifier] = shiftStack(env);
+}
+
 void eval_operand(StringVector &tokens, local_space<StringVector> &env) {
     std::string operand = shiftTKS(tokens);
 
@@ -116,10 +133,76 @@ void eval_operand(StringVector &tokens, local_space<StringVector> &env) {
     else if (operand == "MOD")
         env.mod();
 }
+using lambdaCTypes = std::function<std::any(const valueVariant &)>;
+valueVariant runFFI(const FFI_Func &f, std::vector<valueVariant> args) {
+    ffi_cif cif;
+    ffi_type *arg_types[f.arg_types.size()];
+    void *values[args.size()];
+
+    size_t argTypeIndex = 0;
+    for (auto &argtype : f.arg_types) {
+        arg_types[argTypeIndex] = argtype;
+        argTypeIndex++;
+    }
+
+    std::vector<std::vector<char>> arg_storage(args.size());
+
+    for (size_t index = 0; index < args.size(); ++index) {
+        ffi_type *t = f.arg_types[index];
+        arg_storage[index].resize(t->size);
+
+        if (t == &ffi_type_double) {
+            double val = std::get<double>(args[index]);
+            std::memcpy(arg_storage[index].data(), &val, sizeof(double));
+            values[index] = arg_storage[index].data();
+
+        } else if (t == &ffi_type_sint) {
+            int val = std::get<int>(args[index]);
+            std::memcpy(arg_storage[index].data(), &val, sizeof(int));
+            values[index] = arg_storage[index].data();
+        }
+    }
+
+    if (ffi_prep_cif(
+            &cif, FFI_DEFAULT_ABI, args.size(), f.return_type, arg_types) ==
+        FFI_OK) {
+        if (f.return_type == &ffi_type_double) {
+            double rc;
+            ffi_call(&cif, FFI_FN(f.func_ptr), &rc, values);
+            return valueVariant(rc);
+        } else if (f.return_type == &ffi_type_sint) {
+            int rc;
+            ffi_call(&cif, FFI_FN(f.func_ptr), &rc, values);
+            return valueVariant(rc);
+        } else {
+            throw "Unexpected return type";
+        }
+    }
+
+    throw "ffi_prep_cif fail";
+}
 
 void eval_call(StringVector &tokens, local_space<StringVector> &env) {
     shiftTKS(tokens);
     // std::cout << env.stack.size();
+    if (std::holds_alternative<FFI_Func>(env.stack.back())) {
+        FFI_Func fn = std::get<FFI_Func>(shiftStack(env));
+        std::vector<valueVariant> args;
+
+        for (size_t i = 0; i < fn.arg_types.size(); ++i) {
+            if (env.stack.size() <= 0) {
+                break;
+            }
+            args.push_back(shiftStack(env));
+        }
+
+        std::reverse(args.begin(), args.end());
+
+        valueVariant result = runFFI(fn, args);
+
+        env.stack.push_back(result);
+        return;
+    }
     callback fn = std::get<callback>(shiftStack(env));
     if (std::get<std::string>(fn.at("type")) == "native-fn") {
         // fuckass classes and their pointers
@@ -135,13 +218,17 @@ void eval_call(StringVector &tokens, local_space<StringVector> &env) {
             std::any_cast<std::shared_ptr<local_space<StringVector>>>(
                 declarationAny);
 
-        std::shared_ptr<local_space<StringVector>> scope(declaration);
+        local_space<StringVector> scope(declaration);
 
         auto body = std::get<StringVector>(fn.at("body"));
         auto params = std::get<StringVector>(fn.at("params"));
 
         for (auto &param : params) {
-            scope->local_stack[param] = shiftStack(*declaration);
+            if (declaration->stack.size() == 0) {
+                scope.local_stack[param] = env.getVariable("null");
+                continue;
+            }
+            scope.local_stack[param] = shiftStack(*declaration);
         }
 
         bool shouldReturn = false;
@@ -152,7 +239,7 @@ void eval_call(StringVector &tokens, local_space<StringVector> &env) {
                 break;
             }
 
-            std::optional<bool> doReturn = evalToken(body, *scope);
+            std::optional<bool> doReturn = evalToken(body, scope);
             if (doReturn == true) {
                 shouldReturn = true;
                 break;
@@ -160,13 +247,13 @@ void eval_call(StringVector &tokens, local_space<StringVector> &env) {
         };
 
         if (shouldReturn) {
-            if (scope->stack.size() == 0) {
+            if (scope.stack.size() == 0) {
                 env.stack.push_back(env.getVariable("null"));
             } else {
-                env.stack.push_back(shiftStack(*scope));
+                env.stack.push_back(shiftStack(scope));
             }
         } else {
-            scope->stack.clear();
+            scope.stack.clear();
         }
     }
 }
@@ -388,13 +475,16 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
 
     // parsing labels over
     // evaluating now
-    std::shared_ptr<local_space<StringVector>> scope(&env);
 
+    auto envPtr = std::shared_ptr<local_space<StringVector>>(
+        &env, [](local_space<StringVector> *) {});
+
+    local_space<StringVector> scope(envPtr);
     while (!ast.condition.empty()) {
-        evalToken(ast.condition, *scope);
+        evalToken(ast.condition, scope);
     }
 
-    auto result = shiftStack(*scope);
+    auto result = shiftStack(scope);
     bool shouldReturn = false;
 
     if (isTruthy(result)) {
@@ -406,16 +496,16 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
             if (ast.body[0] == "CONTINUE") {
                 shouldReturn = true;
                 shiftTKS(ast.body);
-                scope->stack.push_back("__CONTINUE__");
+                scope.stack.push_back("__CONTINUE__");
                 break;
             }
             if (ast.body[0] == "BREAK") {
-                scope->stack.push_back("__BREAK__");
+                scope.stack.push_back("__BREAK__");
 
                 shouldReturn = true;
                 break;
             }
-            std::optional<bool> doReturn = evalToken(ast.body, *scope);
+            std::optional<bool> doReturn = evalToken(ast.body, scope);
             if (doReturn == true) {
                 shouldReturn = true;
                 break;
@@ -427,10 +517,10 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
         if (ast.elifLabels) {
             for (auto &elifNode : *ast.elifLabels) {
                 while (!elifNode->condition.empty()) {
-                    evalToken(elifNode->condition, *scope);
+                    evalToken(elifNode->condition, scope);
                 }
 
-                auto elifResult = shiftStack(*scope);
+                auto elifResult = shiftStack(scope);
                 if (isTruthy(elifResult)) {
                     foundResult = true;
                     while (!elifNode->body.empty()) {
@@ -441,18 +531,18 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
                         if (elifNode->body[0] == "CONTINUE") {
                             shouldReturn = true;
                             shiftTKS(elifNode->body);
-                            scope->stack.push_back("__CONTINUE__");
+                            scope.stack.push_back("__CONTINUE__");
 
                             break;
                         }
                         if (elifNode->body[0] == "BREAK") {
-                            scope->stack.push_back("__BREAK__");
+                            scope.stack.push_back("__BREAK__");
 
                             shouldReturn = true;
                             break;
                         }
                         std::optional<bool> doReturn =
-                            evalToken(elifNode->body, *scope);
+                            evalToken(elifNode->body, scope);
                         if (doReturn == true) {
                             shouldReturn = true;
                             break;
@@ -472,18 +562,18 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
                 }
                 if ((*ast.elseBody)[0] == "CONTINUE") {
                     shiftTKS(*ast.elseBody);
-                    scope->stack.push_back("__CONTINUE__");
+                    scope.stack.push_back("__CONTINUE__");
 
                     shouldReturn = true;
                     break;
                 }
                 if ((*ast.elseBody)[0] == "BREAK") {
-                    scope->stack.push_back("__BREAK__");
+                    scope.stack.push_back("__BREAK__");
 
                     shouldReturn = true;
                     break;
                 }
-                std::optional<bool> doReturn = evalToken(*ast.elseBody, *scope);
+                std::optional<bool> doReturn = evalToken(*ast.elseBody, scope);
                 if (doReturn == true) {
                     shouldReturn = true;
                     break;
@@ -493,10 +583,10 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
     }
 
     if (shouldReturn) {
-        if (scope->stack.size() == 0) {
+        if (scope.stack.size() == 0) {
             env.stack.push_back(env.getVariable("null"));
         } else {
-            env.stack.push_back(shiftStack(*scope));
+            env.stack.push_back(shiftStack(scope));
         }
         return true;
     }
@@ -570,8 +660,10 @@ bool eval_loop_stmt(StringVector &tokens, local_space<StringVector> &env) {
     shiftTKS(tokens);
 
     // body eval
-    std::shared_ptr<local_space<StringVector>> scope(env);
+    auto envPtr = std::shared_ptr<local_space<StringVector>>(
+        &env, [](local_space<StringVector> *) {});
 
+    local_space<StringVector> scope(envPtr);
     bool shouldReturn = false;
 
     auto evalBody = [&body, &shouldReturn, &scope]() {
@@ -588,14 +680,14 @@ bool eval_loop_stmt(StringVector &tokens, local_space<StringVector> &env) {
             if (loopBody[0] == "BREAK") {
                 break;
             }
-            std::optional<bool> doReturn = evalToken(loopBody, *scope);
+            std::optional<bool> doReturn = evalToken(loopBody, scope);
 
-            if (doReturn == true && scope->stack.back() == "__CONTINUE__") {
-                shiftStack(*scope);
+            if (doReturn == true && scope.stack.back() == "__CONTINUE__") {
+                shiftStack(scope);
                 break;
             }
 
-            if (doReturn == true && scope->stack.back() == "__BREAK__") {
+            if (doReturn == true && scope.stack.back() == "__BREAK__") {
                 break;
             }
 
@@ -606,16 +698,16 @@ bool eval_loop_stmt(StringVector &tokens, local_space<StringVector> &env) {
         }
     };
 
-    auto null = scope->getVariable("null");
-    while (scope->stack.size() == 0) {
+    auto null = scope.getVariable("null");
+    while (scope.stack.size() == 0) {
         evalBody();
     }
 
     if (shouldReturn) {
-        if (scope->stack.size() == 0) {
+        if (scope.stack.size() == 0) {
             env.stack.push_back(env.getVariable("null"));
         } else {
-            env.stack.push_back(shiftStack(*scope));
+            env.stack.push_back(shiftStack(scope));
         }
         return true;
     }
@@ -667,6 +759,8 @@ void eval_nested_assignment(
         convert(shiftStack(env)).value());
     auto nodeOpt = getIndex(*dummy, lastKey);
     if (!nodeOpt) {
+        dummy->push_back(tableNode{.key = lastKey, .value = shiftStack(env)});
+        env.stack.push_back(object);
         return;
     }
 
@@ -676,6 +770,82 @@ void eval_nested_assignment(
     }
 
     env.stack.push_back(object);
+}
+
+ffi_type *get_ffi_type(const std::string &typeName) {
+    static std::unordered_map<std::string, ffi_type *> types = {
+        {"double", &ffi_type_double},
+        {"float", &ffi_type_float},
+        {"int", &ffi_type_sint},
+        {"uint", &ffi_type_uint32},
+        {"string", &ffi_type_pointer},
+        {"void", &ffi_type_void},
+        {"bool", &ffi_type_uint8}};
+
+    auto it = types.find(typeName);
+    if (it != types.end())
+        return it->second;
+    return nullptr;
+}
+
+void eval_define(StringVector &tokens, local_space<StringVector> &env) {
+    shiftTKS(tokens);
+
+    std::string caller = shiftTKS(tokens);
+    std::string path = shiftTKS(tokens);
+
+    std::vector<ffi_type *> inputTypes;
+
+    double arguments = env.getDouble(shiftStack(env));
+
+    for (int i = 0; i < arguments; ++i) {
+        inputTypes.push_back(
+            get_ffi_type(std::get<std::string>(shiftStack(env))));
+    }
+
+    ffi_type *returnType = get_ffi_type(std::get<std::string>(shiftStack(env)));
+
+#if defined(_WIN32) || defined(_WIN64)
+    // Windows
+
+    void *handle = nullptr;
+
+    if (libraryPointers.find(path) == libraryPointers.end()) {
+        libraryPointers.insert({path, LoadLibrary(path.c_str())});
+        handle = libraryPointers.at(path);
+    } else {
+        handle = libraryPointers.at(path);
+    }
+
+    if (!handle) {
+        throw "Failed to load DLL";
+    }
+
+    void *fn = GetProcAddress(hDLL, ("gem_" + caller).c_str());
+
+    env.local_stack[caller] = FFI_Func{
+        .func_ptr = fn, .return_type = returnType, .arg_types = inputTypes};
+
+#else
+    // Linux / macOS
+    void *handle = nullptr;
+
+    if (libraryPointers.find(path) == libraryPointers.end()) {
+        libraryPointers.insert({path, dlopen(path.c_str(), RTLD_LAZY)});
+        handle = libraryPointers.at(path);
+    } else {
+        handle = libraryPointers.at(path);
+    }
+
+    if (!handle) {
+        throw dlerror();
+    }
+
+    void *fn = dlsym(handle, ("gem_" + caller).c_str());
+
+    env.local_stack[caller] = FFI_Func{
+        .func_ptr = fn, .return_type = returnType, .arg_types = inputTypes};
+#endif
 }
 
 std::optional<bool> evalToken(
@@ -688,6 +858,8 @@ std::optional<bool> evalToken(
         eval_push(tokens, env);
     } else if (current == "STORE_LOCAL") {
         eval_store_local(tokens, env);
+    } else if (current == "DECLARE_LOCAL") {
+        eval_declare_local(tokens, env);
     } else if (current == "ADD" || current == "SUB" || current == "MUL" ||
                current == "DIV" || current == "POW" || current == "MOD") {
         eval_operand(tokens, env);
@@ -723,6 +895,8 @@ std::optional<bool> evalToken(
         shiftTKS(tokens);
         std::string fakeMemoryPtr = shiftTKS(tokens);
         env.local_stack.erase(fakeMemoryPtr);
+    } else if (current == "DEFINE") {
+        eval_define(tokens, env);
     } else {
         std::cout << "THIS FAILED: " + shiftTKS(tokens) << std::endl;
     }
@@ -813,24 +987,41 @@ void initNatives(localStackType &local_stack) {
                         (*index)++;
                     }));
             })}};
-    local_stack["console"] = table{tableNode{.key = makeTemplateString("out"),
-        .value = makeNative([](local_space<StringVector> *env) {
-            std::vector<valueVariant> printQueue;
+    local_stack["console"] = table{
+        tableNode{.key = makeTemplateString("out"),
+            .value = makeNative([](local_space<StringVector> *env) {
+                std::vector<valueVariant> printQueue;
 
-            while (!env->stack.empty()) {
-                printQueue.push_back(env->stack.back());
-                env->pop();
-            }
+                while (!env->stack.empty()) {
+                    printQueue.push_back(env->stack.back());
+                    env->pop();
+                }
 
-            std::reverse(printQueue.begin(), printQueue.end());
+                for (auto &value : printQueue) {
+                    print::printValue(value, 0);
+                    std::cout << " ";
+                }
 
-            for (auto &value : printQueue) {
-                print::printValue(value, 0);
-                std::cout << " ";
-            }
-
-            std::cout << "\n";
-        })}};
+                std::cout << "\n";
+            })},
+        tableNode{.key = makeTemplateString("err"),
+            .value = makeNative([](local_space<StringVector> *env) {
+                std::string text = std::get<std::string>(env->pop());
+                text.erase(0, 1);
+                text.erase(text.size() - 1, 1);
+                std::cout << paint(text, color::Red) << std::endl;
+            })},
+        tableNode{.key = makeTemplateString("in"),
+            .value = makeNative([](local_space<StringVector> *env) {
+                std::string prompt = std::get<std::string>(env->pop());
+                prompt.erase(0, 1);
+                prompt.erase(prompt.size() - 1, 1);
+                std::cout << prompt;
+                std::cout.flush();
+                std::string input;
+                std::getline(std::cin, input);
+                env->stack.push_back("\"" + input + "\"");
+            })}};
 }
 
 void evaluate(std::string &source) {

@@ -1,21 +1,140 @@
 function main :
-  PUSH 3.14
-  STORE_LOCAL pi
-  function add x y :
-    LOAD_LOCAL x
-    LOAD_LOCAL y
-    ADD
-    RETURN
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE abs /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE cos /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE tan /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE asin /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE acos /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE atan /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE simplelog /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH double
+  PUSH 2
+  DEFINE complexlog /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE floor /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE round /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE ceil /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  NEW_TABLE
+  LOAD_LOCAL abs
+  PUSH ""abs""
+  STORE_KEY
+  LOAD_LOCAL cos
+  PUSH ""cos""
+  STORE_KEY
+  LOAD_LOCAL tan
+  PUSH ""tan""
+  STORE_KEY
+  LOAD_LOCAL asin
+  PUSH ""asin""
+  STORE_KEY
+  LOAD_LOCAL acos
+  PUSH ""acos""
+  STORE_KEY
+  LOAD_LOCAL atan
+  PUSH ""atan""
+  STORE_KEY
+  function 0x00000001 x y :
+    IF
+      LOAD_LOCAL y
+      LOAD_LOCAL null
+      EQ
+    THEN
+      LOAD_LOCAL x
+      LOAD_LOCAL simplelog
+      CALL
+      RETURN
+    ENDIF
+    ELSE
+      LOAD_LOCAL y
+      LOAD_LOCAL x
+      LOAD_LOCAL complexlog
+      CALL
+      RETURN
+    ENDIF
   RET
-  STORE_LOCAL add
+  PUSH ""log""
+  STORE_KEY
+  LOAD_LOCAL floor
+  PUSH ""floor""
+  STORE_KEY
+  LOAD_LOCAL round
+  PUSH ""round""
+  STORE_KEY
+  LOAD_LOCAL ceil
+  PUSH ""ceil""
+  STORE_KEY
+  PUSH 2.71828182845904523536
+  PUSH ""e""
+  STORE_KEY
+  PUSH 16
+  PUSH 1
+  PUSH 5
+  DIV
+  LOAD_LOCAL atan
+  CALL
+  MUL
+  PUSH 4
+  PUSH 1
+  PUSH 239
+  DIV
+  LOAD_LOCAL atan
+  CALL
+  MUL
+  SUB
+  PUSH ""pi""
+  STORE_KEY
+
+  DECLARE_LOCAL math
+  DELETE abs
+  DELETE cos
+  DELETE tan
+  DELETE asin
+  DELETE acos
+  DELETE atan
+  DELETE simplelog
+  DELETE complexlog
+  DELETE floor
+  DELETE round
+  DELETE ceil
 
   PUSH 5
-  PUSH 10
-  LOAD_LOCAL add
+  LOAD_LOCAL math
+  PUSH "sin"
+  LOAD_KEY
   CALL
   LOAD_LOCAL console
   PUSH "out"
   LOAD_KEY
   CALL
 RET
-STORE_LOCAL main
+DECLARE_LOCAL main
