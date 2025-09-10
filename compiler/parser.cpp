@@ -100,6 +100,11 @@ astToken parser::parseStmt() {
         parser::skip_semi_colon();
         return astToken{.kind = tokenKind::Delete, .value = value};
     }
+    case TokenType::Self: {
+        parser::eat();
+        parser::skip_semi_colon();
+        return astToken{.kind = tokenKind::Self};
+    }
     default:
         return parser::parse_expr();
     };

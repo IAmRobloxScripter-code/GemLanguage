@@ -13,6 +13,7 @@ struct FFI_Func {
     void *func_ptr;
     ffi_type *return_type;
     std::vector<ffi_type *> arg_types;
+    std::string return_type_name;
 };
 
 using StringVector = std::deque<std::string>;

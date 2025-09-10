@@ -56,7 +56,8 @@ std::map<std::string, TokenType> keywords = {{"var", TokenType::Var},
     {"reflect", TokenType::Reflect},
     {"shine", TokenType::Shine},
     {"extern", TokenType::Extern},
-    {"delete", TokenType::Delete}};
+    {"delete", TokenType::Delete},
+    {"self", TokenType::Self}};
 
 bool isStringBody(std::string x) {
     return x == "'" || x == "`" || x == "\"";

@@ -1,15 +1,25 @@
-shine extern abs   :: "math.so" :: (double) -> double;
-shine extern sin   :: "math.so" :: (double) -> double;
-shine extern cos   :: "math.so" :: (double) -> double;
-shine extern tan   :: "math.so" :: (double) -> double;
-shine extern asin  :: "math.so" :: (double) -> double;
-shine extern acos  :: "math.so" :: (double) -> double;
-shine extern atan  :: "math.so" :: (double) -> double;
-shine extern simplelog   :: "math.so" :: (double) -> double;
-shine extern complexlog   :: "math.so" :: (double, double) -> double;
-shine extern floor :: "math.so" :: (double) -> double;
-shine extern round :: "math.so" :: (double) -> double;
-shine extern ceil  :: "math.so" :: (double) -> double;
+shine extern abs   :: "std.so" :: (double) -> double;
+shine extern sin   :: "std.so" :: (double) -> double;
+shine extern cos   :: "std.so" :: (double) -> double;
+shine extern tan   :: "std.so" :: (double) -> double;
+shine extern asin  :: "std.so" :: (double) -> double;
+shine extern acos  :: "std.so" :: (double) -> double;
+shine extern atan  :: "std.so" :: (double) -> double;
+shine extern simplelog :: "std.so" :: (double) -> double;
+shine extern complexlog :: "std.so" :: (double, double) -> double;
+shine extern floor :: "std.so" :: (double) -> double;
+shine extern round :: "std.so" :: (double) -> double;
+shine extern ceil  :: "std.so" :: (double) -> double;
+shine extern tonumber :: "std.so" :: (string) -> double;
+shine extern tostring :: "std.so" :: (double) -> string;
+shine extern fopen :: "std.so" :: (string) -> table;
+
+shine var __privateflags = {
+    simplelog: simplelog,
+    complexlog: complexlog,
+    tostring: tostring,
+    tonumber: tonumber,
+}
 
 shine var math = {
     abs   : abs,
@@ -21,15 +31,30 @@ shine var math = {
     atan  : atan,
     log   : fn(x, y) {
         if y == null
-            return simplelog(x);
+            return __privateflags.simplelog(x);
         else 
-            return complexlog(x, y);
+            return __privateflags.complexlog(x, y);
     },
     floor : floor,
     round : round,
     ceil  : ceil,
     e: 2.71828182845904523536,
     pi: 16 * atan(1 / 5) - 4 * atan(1 / 239)
+}
+
+shine delete tonumber;
+shine delete tostring;
+
+shine fn tostring(s) {
+    var type = typeof(s);
+    if type == "string" return s;
+    else return __privateflags.tostring(s);
+}
+
+shine fn tonumber(x) {
+    var type = typeof(x);
+    if type == "number" return x;
+    else return __privateflags.tonumber(x);
 }
 
 shine delete abs;

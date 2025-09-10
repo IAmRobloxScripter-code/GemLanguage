@@ -35,6 +35,7 @@ enum class tokenKind
     Export,
     Extern,
     Delete,
+    Self,
 };
 
 std::string generateRandomString(size_t length);

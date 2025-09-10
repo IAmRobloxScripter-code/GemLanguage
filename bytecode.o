@@ -2,51 +2,85 @@ function main :
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE abs /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE abs /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE cos /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE sin /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE tan /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE cos /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE asin /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE tan /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE acos /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE asin /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE atan /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE acos /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE simplelog /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE atan /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
+  PUSH double
+  PUSH double
+  PUSH 1
+  DEFINE simplelog /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH double
   PUSH 2
-  DEFINE complexlog /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE complexlog /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE floor /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE floor /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE round /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE round /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
   PUSH double
   PUSH double
   PUSH 1
-  DEFINE ceil /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/math.so
+  DEFINE ceil /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
+  PUSH string
+  PUSH double
+  PUSH 1
+  DEFINE tonumber /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
+  PUSH double
+  PUSH string
+  PUSH 1
+  DEFINE tostring /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
+  PUSH string
+  PUSH table
+  PUSH 1
+  DEFINE fopen /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/std.so
+  NEW_TABLE
+  LOAD_LOCAL simplelog
+  PUSH ""simplelog""
+  STORE_KEY
+  LOAD_LOCAL complexlog
+  PUSH ""complexlog""
+  STORE_KEY
+  LOAD_LOCAL tostring
+  PUSH ""tostring""
+  STORE_KEY
+  LOAD_LOCAL tonumber
+  PUSH ""tonumber""
+  STORE_KEY
+
+  DECLARE_LOCAL __privateflags
   NEW_TABLE
   LOAD_LOCAL abs
   PUSH ""abs""
+  STORE_KEY
+  LOAD_LOCAL sin
+  PUSH ""sin""
   STORE_KEY
   LOAD_LOCAL cos
   PUSH ""cos""
@@ -70,14 +104,18 @@ function main :
       EQ
     THEN
       LOAD_LOCAL x
-      LOAD_LOCAL simplelog
+      LOAD_LOCAL __privateflags
+      PUSH "simplelog"
+      LOAD_KEY
       CALL
       RETURN
     ENDIF
     ELSE
       LOAD_LOCAL y
       LOAD_LOCAL x
-      LOAD_LOCAL complexlog
+      LOAD_LOCAL __privateflags
+      PUSH "complexlog"
+      LOAD_KEY
       CALL
       RETURN
     ENDIF
@@ -115,7 +153,58 @@ function main :
   STORE_KEY
 
   DECLARE_LOCAL math
+  DELETE tonumber
+  DELETE tostring
+  function tostring s :
+    LOAD_LOCAL s
+    LOAD_LOCAL typeof
+    CALL
+
+    DECLARE_LOCAL type
+    IF
+      LOAD_LOCAL type
+      PUSH "string"
+      EQ
+    THEN
+      LOAD_LOCAL s
+      RETURN
+    ENDIF
+    ELSE
+      LOAD_LOCAL s
+      LOAD_LOCAL __privateflags
+      PUSH "tostring"
+      LOAD_KEY
+      CALL
+      RETURN
+    ENDIF
+  RET
+  DECLARE_LOCAL tostring
+  function tonumber x :
+    LOAD_LOCAL x
+    LOAD_LOCAL typeof
+    CALL
+
+    DECLARE_LOCAL type
+    IF
+      LOAD_LOCAL type
+      PUSH "number"
+      EQ
+    THEN
+      LOAD_LOCAL x
+      RETURN
+    ENDIF
+    ELSE
+      LOAD_LOCAL x
+      LOAD_LOCAL __privateflags
+      PUSH "tonumber"
+      LOAD_KEY
+      CALL
+      RETURN
+    ENDIF
+  RET
+  DECLARE_LOCAL tonumber
   DELETE abs
+  DELETE sin
   DELETE cos
   DELETE tan
   DELETE asin
@@ -127,10 +216,16 @@ function main :
   DELETE round
   DELETE ceil
 
-  PUSH 5
-  LOAD_LOCAL math
-  PUSH "sin"
+  PUSH "std.gem"
+  PUSH "/home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C"
+  LOAD_LOCAL string
+  PUSH "stopath"
   LOAD_KEY
+  CALL
+
+  DECLARE_LOCAL path
+  LOAD_LOCAL path
+  LOAD_LOCAL fopen
   CALL
   LOAD_LOCAL console
   PUSH "out"

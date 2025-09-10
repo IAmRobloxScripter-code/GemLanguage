@@ -6,7 +6,6 @@
 #include <iostream>
 #include <sstream>
 
-std::filesystem::path fileRoot;
 void compiler::concat(std::string &str, std::string value) {
     str += value;
 }
@@ -418,7 +417,7 @@ void compiler::compile_reflect(astToken &node) {
     path.erase(0, 1);
     path.erase(path.size() - 1, 1);
 
-    auto actualPath = resolveImport(fileRoot, path);
+    auto actualPath = resolveImport(compiler::fileRoot, path);
     std::ifstream file(actualPath);
 
     if (!file.is_open()) {
@@ -444,6 +443,7 @@ void compiler::compile_reflect(astToken &node) {
     if (includes.size() == 0) {
         compiler compilerInstance;
         compilerInstance.identation = 1;
+        compilerInstance.fileRoot = actualPath;
         compilerInstance.compile_program(exported, false);
         bytecode += compilerInstance.bytecode;
     } else {
@@ -459,6 +459,7 @@ void compiler::compile_reflect(astToken &node) {
 
         compiler compilerInstance;
         compilerInstance.identation = 1;
+        compilerInstance.fileRoot = actualPath;
         compilerInstance.compile_program(exported, false);
         bytecode += compilerInstance.bytecode;
     }
@@ -487,7 +488,7 @@ void compiler::compile_extern(astToken &node) {
     auto refPath = node.right->value;
     refPath.erase(0, 1);
     refPath.erase(refPath.size() - 1, 1);
-    auto path = resolveImport(fileRoot, refPath);
+    auto path = resolveImport(compiler::fileRoot, refPath);
     auto params = node.params;
     std::reverse(params.begin(), params.end());
 
@@ -602,6 +603,10 @@ void compiler::generate(astToken &node, bool isDeclaration) {
         compiler::concat(
             bytecode, compiler::spaces() + "DELETE " + node.value + "\n");
         break;
+    } case tokenKind::Self: {
+        std::string fileRootRaw = resolveImport(compiler::fileRoot, "").string();
+        compiler::concat(bytecode, compiler::spaces() + "PUSH \"" + fileRootRaw + "\"\n");
+        break;
     }
     default:
         throw "Invalid ast found during compilation";
@@ -618,7 +623,7 @@ void compiler::generate(std::shared_ptr<astToken> &node, bool isDeclaration) {
 
 std::string compiler::compile(
     astToken &program, const std::filesystem::path &file) {
-    fileRoot = file;
+    compiler::fileRoot = file;
     if (settings.verbose)
         std::cout << "Begining to compile ast to bytecode" << std::endl;
     if (settings.verbose && settings.optimize)

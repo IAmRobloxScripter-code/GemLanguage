@@ -1,14 +1,10 @@
-#ifndef TABLE_FFI_H
-#define TABLE_FFI_H
+#pragma once
 
 #include <stddef.h>
 #include <stdbool.h>
-
-typedef enum {
-    KEY_INT,
-    KEY_DOUBLE,
-    KEY_STRING
-} KeyType;
+#include <cstdlib> // for realloc, free, exit
+#include <cstdio>  // for perror
+#include <cstring> // for strdup
 
 typedef enum {
     VAL_INT,
@@ -16,38 +12,67 @@ typedef enum {
     VAL_BOOL,
     VAL_STRING,
     VAL_CALLBACK,
-    VAL_TABLE_PTR,
-    VAL_FFI_FUNC_PTR
-} ValueType;
+    VAL_TABLE,
+    VAL_FFI_FUNC
+} cValueType;
 
-struct TableNode;
-typedef struct TableNode TableNode;
+typedef char* cstring;
+typedef void (*cCallback)(void);
 
-typedef void (*Callback)(void);
-typedef void* FFI_FuncPtr;
-typedef char* string;
+typedef void (*cFFI_FuncPtr)(void);
+
+typedef enum { KEY_INT, KEY_DOUBLE, KEY_STRING } KeyType;
 
 typedef struct {
-    ValueType type;
+    KeyType type;
     union {
         int i;
         double d;
-        bool b;
-        const string s;
-        Callback cb;
-        TableNode* table;
-        FFI_FuncPtr ffi_func;
-    } data;
-} valueVariant;
+        cstring s;
+    };
+} cKey;
 
-struct TableNode {
-    string key;
-    valueVariant value;
-};
+struct cTableNode;
 
 typedef struct {
-    TableNode* nodes;
-    size_t size;
-} table;
+    cValueType type;
+    union {
+        void* cb;                  
+        int i;
+        double d;
+        bool b;
+        const char* s;            
+        struct cTableNode* table; 
+    };
+    size_t table_len;
+} cValue;
 
-#endif
+typedef struct cTableNode {
+    cKey key;
+    cValue value;
+} cTableNode;
+
+typedef struct {
+    cTableNode* nodes;
+    size_t len;
+} cTable;
+
+inline void table_init(cTable* t) {
+    t->nodes = NULL;
+    t->len = 0;
+}
+
+inline void table_push(cTable* t, cTableNode node) {
+    cTableNode* new_nodes = (cTableNode*)realloc(t->nodes, (t->len + 1) * sizeof(cTableNode));
+    if (!new_nodes) {
+        perror("realloc failed");
+        exit(1);
+    }
+    t->nodes = new_nodes;
+    t->nodes[t->len] = node;
+    t->len += 1;
+}
+
+inline cTable* table_new() {
+    return (cTable*)malloc(sizeof(cTable));
+}

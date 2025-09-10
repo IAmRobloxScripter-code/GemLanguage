@@ -1,16 +1,17 @@
 #include "vm.hpp"
 #include "../gemSettings.hpp"
+#include "ctypes.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cxxabi.h>
 #include <ffi.h>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
 #include <map>
 #include <optional>
 #include <variant>
-
 #if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
 #else
@@ -133,7 +134,7 @@ void eval_operand(StringVector &tokens, local_space<StringVector> &env) {
     else if (operand == "MOD")
         env.mod();
 }
-using lambdaCTypes = std::function<std::any(const valueVariant &)>;
+
 valueVariant runFFI(const FFI_Func &f, std::vector<valueVariant> args) {
     ffi_cif cif;
     ffi_type *arg_types[f.arg_types.size()];
@@ -151,16 +152,7 @@ valueVariant runFFI(const FFI_Func &f, std::vector<valueVariant> args) {
         ffi_type *t = f.arg_types[index];
         arg_storage[index].resize(t->size);
 
-        if (t == &ffi_type_double) {
-            double val = std::get<double>(args[index]);
-            std::memcpy(arg_storage[index].data(), &val, sizeof(double));
-            values[index] = arg_storage[index].data();
-
-        } else if (t == &ffi_type_sint) {
-            int val = std::get<int>(args[index]);
-            std::memcpy(arg_storage[index].data(), &val, sizeof(int));
-            values[index] = arg_storage[index].data();
-        }
+        convertToC(f, index, t, arg_storage, values, args);
     }
 
     if (ffi_prep_cif(
@@ -169,11 +161,31 @@ valueVariant runFFI(const FFI_Func &f, std::vector<valueVariant> args) {
         if (f.return_type == &ffi_type_double) {
             double rc;
             ffi_call(&cif, FFI_FN(f.func_ptr), &rc, values);
+            // cleanStorage(arg_storage, values, args.size());
             return valueVariant(rc);
         } else if (f.return_type == &ffi_type_sint) {
             int rc;
             ffi_call(&cif, FFI_FN(f.func_ptr), &rc, values);
+            // cleanStorage(arg_storage, values, args.size());
             return valueVariant(rc);
+        } else if (f.return_type == &ffi_type_pointer) {
+            if (f.return_type_name == "table") {
+                cTable *rc_ptr = nullptr;
+                ffi_call(&cif, FFI_FN(f.func_ptr), &rc_ptr, values);
+
+                cTable rc = *rc_ptr;
+                table cppCopy = CToCppTable(rc);
+
+                freeCtable(rc);
+                free(rc_ptr);
+                return valueVariant(std::move(cppCopy));
+            } else {
+                char *rc;
+                ffi_call(&cif, FFI_FN(f.func_ptr), &rc, values);
+                // cleanStorage(arg_storage, values, args.size());
+
+                return valueVariant("\"" + std::string(rc) + "\"");
+            }
         } else {
             throw "Unexpected return type";
         }
@@ -196,13 +208,14 @@ void eval_call(StringVector &tokens, local_space<StringVector> &env) {
             args.push_back(shiftStack(env));
         }
 
-        std::reverse(args.begin(), args.end());
+        // std::reverse(args.begin(), args.end());
 
         valueVariant result = runFFI(fn, args);
 
         env.stack.push_back(result);
         return;
     }
+
     callback fn = std::get<callback>(shiftStack(env));
     if (std::get<std::string>(fn.at("type")) == "native-fn") {
         // fuckass classes and their pointers
@@ -779,6 +792,7 @@ ffi_type *get_ffi_type(const std::string &typeName) {
         {"int", &ffi_type_sint},
         {"uint", &ffi_type_uint32},
         {"string", &ffi_type_pointer},
+        {"table", &ffi_type_pointer},
         {"void", &ffi_type_void},
         {"bool", &ffi_type_uint8}};
 
@@ -797,13 +811,13 @@ void eval_define(StringVector &tokens, local_space<StringVector> &env) {
     std::vector<ffi_type *> inputTypes;
 
     double arguments = env.getDouble(shiftStack(env));
+    std::string thetype = std::get<std::string>(shiftStack(env));
+    ffi_type *returnType = get_ffi_type(thetype);
 
     for (int i = 0; i < arguments; ++i) {
         inputTypes.push_back(
             get_ffi_type(std::get<std::string>(shiftStack(env))));
     }
-
-    ffi_type *returnType = get_ffi_type(std::get<std::string>(shiftStack(env)));
 
 #if defined(_WIN32) || defined(_WIN64)
     // Windows
@@ -823,8 +837,10 @@ void eval_define(StringVector &tokens, local_space<StringVector> &env) {
 
     void *fn = GetProcAddress(hDLL, ("gem_" + caller).c_str());
 
-    env.local_stack[caller] = FFI_Func{
-        .func_ptr = fn, .return_type = returnType, .arg_types = inputTypes};
+    env.local_stack[caller] = FFI_Func{.func_ptr = fn,
+        .return_type = returnType,
+        .arg_types = inputTypes,
+        .return_type_name = thetype};
 
 #else
     // Linux / macOS
@@ -843,8 +859,10 @@ void eval_define(StringVector &tokens, local_space<StringVector> &env) {
 
     void *fn = dlsym(handle, ("gem_" + caller).c_str());
 
-    env.local_stack[caller] = FFI_Func{
-        .func_ptr = fn, .return_type = returnType, .arg_types = inputTypes};
+    env.local_stack[caller] = FFI_Func{.func_ptr = fn,
+        .return_type = returnType,
+        .arg_types = inputTypes,
+        .return_type_name = thetype};
 #endif
 }
 
@@ -933,6 +951,20 @@ void initNatives(localStackType &local_stack) {
                 std::string str = std::get<std::string>(env->pop());
                 env->stack.push_back(static_cast<double>(str.size()) - 2);
             })},
+        tableNode{.key = makeTemplateString("stopath"),
+            .value = makeNative([](local_space<StringVector> *env) {
+                std::string str = std::get<std::string>(env->pop());
+                std::string importPath = std::get<std::string>(env->pop());
+
+                str.erase(0, 1);
+                str.erase(str.size() - 1, 1);
+                importPath.erase(0, 1);
+                importPath.erase(importPath.size() - 1, 1);
+
+                std::filesystem::path currentDir = std::filesystem::path(str);
+                std::filesystem::path resolved = currentDir / importPath;
+                env->stack.push_back("\"" + resolved.string() + "\"");
+            })},
         tableNode{.key = makeTemplateString("iterator"),
             .value = makeNative([](local_space<StringVector> *env) {
                 std::string object = std::get<std::string>(env->pop());
@@ -987,41 +1019,60 @@ void initNatives(localStackType &local_stack) {
                         (*index)++;
                     }));
             })}};
-    local_stack["console"] = table{
-        tableNode{.key = makeTemplateString("out"),
-            .value = makeNative([](local_space<StringVector> *env) {
-                std::vector<valueVariant> printQueue;
+    local_stack["typeof"] = makeNative([](local_space<StringVector> *env) {
+        std::string type = "null";
+        valueVariant value = env->pop();
 
-                while (!env->stack.empty()) {
-                    printQueue.push_back(env->stack.back());
-                    env->pop();
-                }
+        if (std::holds_alternative<std::string>(value)) {
+            type = "string";
+        } else if (std::holds_alternative<double>(value) ||
+                   std::holds_alternative<int>(value)) {
+            type = "number";
+        } else if (std::holds_alternative<table>(value)) {
+            type = "table";
+        } else if (std::holds_alternative<callback>(value)) {
+            type = "function";
+        } else if (std::holds_alternative<FFI_Func>(value)) {
+            type = "C/C++ function";
+        }
 
-                for (auto &value : printQueue) {
-                    print::printValue(value, 0);
-                    std::cout << " ";
-                }
+        env->stack.push_back("\"" + type + "\"");
+    });
+    local_stack["console"] =
+        table{tableNode{.key = makeTemplateString("out"),
+                  .value = makeNative([](local_space<StringVector> *env) {
+                      std::vector<valueVariant> printQueue;
 
-                std::cout << "\n";
-            })},
-        tableNode{.key = makeTemplateString("err"),
-            .value = makeNative([](local_space<StringVector> *env) {
-                std::string text = std::get<std::string>(env->pop());
-                text.erase(0, 1);
-                text.erase(text.size() - 1, 1);
-                std::cout << paint(text, color::Red) << std::endl;
-            })},
-        tableNode{.key = makeTemplateString("in"),
-            .value = makeNative([](local_space<StringVector> *env) {
-                std::string prompt = std::get<std::string>(env->pop());
-                prompt.erase(0, 1);
-                prompt.erase(prompt.size() - 1, 1);
-                std::cout << prompt;
-                std::cout.flush();
-                std::string input;
-                std::getline(std::cin, input);
-                env->stack.push_back("\"" + input + "\"");
-            })}};
+                      while (!env->stack.empty()) {
+                          printQueue.push_back(env->stack.back());
+                          env->pop();
+                      }
+
+                      for (auto &value : printQueue) {
+                          print::printValue(value, 0);
+                          std::cout << " ";
+                      }
+
+                      std::cout << "\n";
+                  })},
+            tableNode{.key = makeTemplateString("err"),
+                .value = makeNative([](local_space<StringVector> *env) {
+                    std::string text = std::get<std::string>(env->pop());
+                    text.erase(0, 1);
+                    text.erase(text.size() - 1, 1);
+                    std::cout << paint(text, color::Red) << std::endl;
+                })},
+            tableNode{.key = makeTemplateString("in"),
+                .value = makeNative([](local_space<StringVector> *env) {
+                    std::string prompt = std::get<std::string>(env->pop());
+                    prompt.erase(0, 1);
+                    prompt.erase(prompt.size() - 1, 1);
+                    std::cout << prompt;
+                    std::cout.flush();
+                    std::string input;
+                    std::getline(std::cin, input);
+                    env->stack.push_back("\"" + input + "\"");
+                })}};
 }
 
 void evaluate(std::string &source) {

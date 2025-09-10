@@ -1,3 +1,5 @@
 reflect "std.gem";
+var path = string.stopath(self, "std.gem");
 
-console.out(math.sin(5))
+var file = fopen(path)
+console.out(file.exists)

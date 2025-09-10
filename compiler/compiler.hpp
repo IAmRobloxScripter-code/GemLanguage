@@ -9,6 +9,7 @@ class compiler {
   public:
     std::string bytecode;
     int identation;
+    std::filesystem::path fileRoot;
     std::string compile(astToken &program, const std::filesystem::path &file);
     std::string spaces();
 

@@ -46,6 +46,7 @@ enum class TokenType
 
     Arrow,
     Delete,
+    Self,
     
     EndOfFile
 };
