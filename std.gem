@@ -1,20 +1,20 @@
-shine extern abs   :: "std.so" :: (double) -> double;
-shine extern sin   :: "std.so" :: (double) -> double;
-shine extern cos   :: "std.so" :: (double) -> double;
-shine extern tan   :: "std.so" :: (double) -> double;
-shine extern asin  :: "std.so" :: (double) -> double;
-shine extern acos  :: "std.so" :: (double) -> double;
-shine extern atan  :: "std.so" :: (double) -> double;
-shine extern simplelog :: "std.so" :: (double) -> double;
-shine extern complexlog :: "std.so" :: (double, double) -> double;
-shine extern floor :: "std.so" :: (double) -> double;
-shine extern round :: "std.so" :: (double) -> double;
-shine extern ceil  :: "std.so" :: (double) -> double;
-shine extern tonumber :: "std.so" :: (string) -> double;
-shine extern tostring :: "std.so" :: (double) -> string;
+extern abs   :: "std.so" :: (double) -> double;
+extern sin   :: "std.so" :: (double) -> double;
+extern cos   :: "std.so" :: (double) -> double;
+extern tan   :: "std.so" :: (double) -> double;
+extern asin  :: "std.so" :: (double) -> double;
+extern acos  :: "std.so" :: (double) -> double;
+extern atan  :: "std.so" :: (double) -> double;
+extern simplelog :: "std.so" :: (double) -> double;
+extern complexlog :: "std.so" :: (double, double) -> double;
+extern floor :: "std.so" :: (double) -> double;
+extern round :: "std.so" :: (double) -> double;
+extern ceil  :: "std.so" :: (double) -> double;
+extern tonumber :: "std.so" :: (string) -> double;
+extern tostring :: "std.so" :: (double) -> string;
 shine extern fopen :: "std.so" :: (string) -> table;
 
-shine var __privateflags = {
+var __privateflags = {
     simplelog: simplelog,
     complexlog: complexlog,
     tostring: tostring,
@@ -42,8 +42,8 @@ shine var math = {
     pi: 16 * atan(1 / 5) - 4 * atan(1 / 239)
 }
 
-shine delete tonumber;
-shine delete tostring;
+delete tonumber;
+delete tostring;
 
 shine fn tostring(s) {
     var type = typeof(s);
@@ -57,15 +57,15 @@ shine fn tonumber(x) {
     else return __privateflags.tonumber(x);
 }
 
-shine delete abs;
-shine delete sin;
-shine delete cos;
-shine delete tan;
-shine delete asin;
-shine delete acos;
-shine delete atan;
-shine delete simplelog;
-shine delete complexlog;
-shine delete floor;
-shine delete round;
-shine delete ceil;
+delete abs;
+delete sin;
+delete cos;
+delete tan;
+delete asin;
+delete acos;
+delete atan;
+delete simplelog;
+delete complexlog;
+delete floor;
+delete round;
+delete ceil;

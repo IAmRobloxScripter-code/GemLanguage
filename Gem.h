@@ -2,9 +2,9 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#include <cstdlib> // for realloc, free, exit
-#include <cstdio>  // for perror
-#include <cstring> // for strdup
+#include <cstdlib>
+#include <cstdio>
+#include <cstring>
 
 typedef enum {
     VAL_INT,

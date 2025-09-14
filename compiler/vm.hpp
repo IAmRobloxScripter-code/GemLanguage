@@ -121,13 +121,14 @@ inline StringVector tokenize(std::string &src)
     return tokens;
 }
 
-void evaluate(std::string &source);
+local_space<StringVector> evaluate(std::string &source);
 
 template <typename T> class local_space
 {
   public:
     stackType stack;
     localStackType local_stack;
+    localStackType exposed_stack;
     std::shared_ptr<local_space<T>> parent_local_space;
 
     local_space() : parent_local_space(nullptr)

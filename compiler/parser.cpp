@@ -150,6 +150,7 @@ astToken parser::parse_extern() {
         .value = returnType.value,
         .right = std::make_shared<astToken>(path),
         .left = std::make_shared<astToken>(identifier),
+        .name = identifier.value,
         .params = inputTypes};
 }
 

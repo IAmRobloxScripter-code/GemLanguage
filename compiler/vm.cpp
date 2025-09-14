@@ -17,6 +17,7 @@
 #else
 #include <dlfcn.h>
 #endif
+#include "compiler.hpp"
 #include <cstring>
 
 std::unordered_map<std::string, void *> libraryPointers;
@@ -68,8 +69,9 @@ void eval_function(StringVector &tokens, local_space<StringVector> &env) {
 
     shiftTKS(tokens);
 
-    callbackVariant envVariant = std::any(
-        std::shared_ptr<local_space<StringVector>>(&env, [](auto *) {}));
+    auto envPtr =
+        std::shared_ptr<local_space<StringVector>>(&env, [](auto *) {});
+    callbackVariant envVariant = envPtr;
 
     std::map<std::string, callbackVariant> token{{"body", body},
         {"name", name},
@@ -231,17 +233,17 @@ void eval_call(StringVector &tokens, local_space<StringVector> &env) {
             std::any_cast<std::shared_ptr<local_space<StringVector>>>(
                 declarationAny);
 
-        local_space<StringVector> scope(declaration);
+        auto scope = std::make_shared<local_space<StringVector>>(declaration);
 
         auto body = std::get<StringVector>(fn.at("body"));
         auto params = std::get<StringVector>(fn.at("params"));
 
         for (auto &param : params) {
-            if (declaration->stack.size() == 0) {
-                scope.local_stack[param] = env.getVariable("null");
+            if (env.stack.size() == 0) {
+                scope->local_stack[param] = scope->getVariable("null");
                 continue;
             }
-            scope.local_stack[param] = shiftStack(*declaration);
+            scope->local_stack[param] = shiftStack(env);
         }
 
         bool shouldReturn = false;
@@ -252,21 +254,20 @@ void eval_call(StringVector &tokens, local_space<StringVector> &env) {
                 break;
             }
 
-            std::optional<bool> doReturn = evalToken(body, scope);
+            std::optional<bool> doReturn = evalToken(body, *scope);
             if (doReturn == true) {
                 shouldReturn = true;
                 break;
             }
         };
-
         if (shouldReturn) {
-            if (scope.stack.size() == 0) {
+            if (scope->stack.size() == 0) {
                 env.stack.push_back(env.getVariable("null"));
             } else {
-                env.stack.push_back(shiftStack(scope));
+                env.stack.push_back(shiftStack(*scope));
             }
         } else {
-            scope.stack.clear();
+            scope->stack.clear();
         }
     }
 }
@@ -300,6 +301,7 @@ void eval_load_local(StringVector &tokens, local_space<StringVector> &env) {
     shiftTKS(tokens);
     std::string identifier = shiftTKS(tokens);
     auto value = env.getVariable(identifier);
+
     env.stack.push_back(value);
 }
 
@@ -492,12 +494,12 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
     auto envPtr = std::shared_ptr<local_space<StringVector>>(
         &env, [](local_space<StringVector> *) {});
 
-    local_space<StringVector> scope(envPtr);
+    auto scope = std::make_shared<local_space<StringVector>>(envPtr);
     while (!ast.condition.empty()) {
-        evalToken(ast.condition, scope);
+        evalToken(ast.condition, *scope);
     }
 
-    auto result = shiftStack(scope);
+    auto result = shiftStack(*scope);
     bool shouldReturn = false;
 
     if (isTruthy(result)) {
@@ -509,16 +511,16 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
             if (ast.body[0] == "CONTINUE") {
                 shouldReturn = true;
                 shiftTKS(ast.body);
-                scope.stack.push_back("__CONTINUE__");
+                scope->stack.push_back("__CONTINUE__");
                 break;
             }
             if (ast.body[0] == "BREAK") {
-                scope.stack.push_back("__BREAK__");
+                scope->stack.push_back("__BREAK__");
 
                 shouldReturn = true;
                 break;
             }
-            std::optional<bool> doReturn = evalToken(ast.body, scope);
+            std::optional<bool> doReturn = evalToken(ast.body, *scope);
             if (doReturn == true) {
                 shouldReturn = true;
                 break;
@@ -530,10 +532,10 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
         if (ast.elifLabels) {
             for (auto &elifNode : *ast.elifLabels) {
                 while (!elifNode->condition.empty()) {
-                    evalToken(elifNode->condition, scope);
+                    evalToken(elifNode->condition, *scope);
                 }
 
-                auto elifResult = shiftStack(scope);
+                auto elifResult = shiftStack(*scope);
                 if (isTruthy(elifResult)) {
                     foundResult = true;
                     while (!elifNode->body.empty()) {
@@ -544,18 +546,18 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
                         if (elifNode->body[0] == "CONTINUE") {
                             shouldReturn = true;
                             shiftTKS(elifNode->body);
-                            scope.stack.push_back("__CONTINUE__");
+                            scope->stack.push_back("__CONTINUE__");
 
                             break;
                         }
                         if (elifNode->body[0] == "BREAK") {
-                            scope.stack.push_back("__BREAK__");
+                            scope->stack.push_back("__BREAK__");
 
                             shouldReturn = true;
                             break;
                         }
                         std::optional<bool> doReturn =
-                            evalToken(elifNode->body, scope);
+                            evalToken(elifNode->body, *scope);
                         if (doReturn == true) {
                             shouldReturn = true;
                             break;
@@ -575,18 +577,18 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
                 }
                 if ((*ast.elseBody)[0] == "CONTINUE") {
                     shiftTKS(*ast.elseBody);
-                    scope.stack.push_back("__CONTINUE__");
+                    scope->stack.push_back("__CONTINUE__");
 
                     shouldReturn = true;
                     break;
                 }
                 if ((*ast.elseBody)[0] == "BREAK") {
-                    scope.stack.push_back("__BREAK__");
+                    scope->stack.push_back("__BREAK__");
 
                     shouldReturn = true;
                     break;
                 }
-                std::optional<bool> doReturn = evalToken(*ast.elseBody, scope);
+                std::optional<bool> doReturn = evalToken(*ast.elseBody, *scope);
                 if (doReturn == true) {
                     shouldReturn = true;
                     break;
@@ -596,10 +598,10 @@ bool eval_if_stmt(StringVector &tokens, local_space<StringVector> &env) {
     }
 
     if (shouldReturn) {
-        if (scope.stack.size() == 0) {
+        if (scope->stack.size() == 0) {
             env.stack.push_back(env.getVariable("null"));
         } else {
-            env.stack.push_back(shiftStack(scope));
+            env.stack.push_back(shiftStack(*scope));
         }
         return true;
     }
@@ -676,7 +678,7 @@ bool eval_loop_stmt(StringVector &tokens, local_space<StringVector> &env) {
     auto envPtr = std::shared_ptr<local_space<StringVector>>(
         &env, [](local_space<StringVector> *) {});
 
-    local_space<StringVector> scope(envPtr);
+    auto scope = std::make_shared<local_space<StringVector>>(envPtr);
     bool shouldReturn = false;
 
     auto evalBody = [&body, &shouldReturn, &scope]() {
@@ -693,14 +695,14 @@ bool eval_loop_stmt(StringVector &tokens, local_space<StringVector> &env) {
             if (loopBody[0] == "BREAK") {
                 break;
             }
-            std::optional<bool> doReturn = evalToken(loopBody, scope);
+            std::optional<bool> doReturn = evalToken(loopBody, *scope);
 
-            if (doReturn == true && scope.stack.back() == "__CONTINUE__") {
-                shiftStack(scope);
+            if (doReturn == true && scope->stack.back() == "__CONTINUE__") {
+                shiftStack(*scope);
                 break;
             }
 
-            if (doReturn == true && scope.stack.back() == "__BREAK__") {
+            if (doReturn == true && scope->stack.back() == "__BREAK__") {
                 break;
             }
 
@@ -711,16 +713,16 @@ bool eval_loop_stmt(StringVector &tokens, local_space<StringVector> &env) {
         }
     };
 
-    auto null = scope.getVariable("null");
-    while (scope.stack.size() == 0) {
+    auto null = scope->getVariable("null");
+    while (scope->stack.size() == 0) {
         evalBody();
     }
 
     if (shouldReturn) {
-        if (scope.stack.size() == 0) {
+        if (scope->stack.size() == 0) {
             env.stack.push_back(env.getVariable("null"));
         } else {
-            env.stack.push_back(shiftStack(scope));
+            env.stack.push_back(shiftStack(*scope));
         }
         return true;
     }
@@ -866,80 +868,6 @@ void eval_define(StringVector &tokens, local_space<StringVector> &env) {
 #endif
 }
 
-std::optional<bool> evalToken(
-    StringVector &tokens, local_space<StringVector> &env) {
-    std::string current = tokens[0];
-
-    if (current == "function") {
-        eval_function(tokens, env);
-    } else if (current == "PUSH") {
-        eval_push(tokens, env);
-    } else if (current == "STORE_LOCAL") {
-        eval_store_local(tokens, env);
-    } else if (current == "DECLARE_LOCAL") {
-        eval_declare_local(tokens, env);
-    } else if (current == "ADD" || current == "SUB" || current == "MUL" ||
-               current == "DIV" || current == "POW" || current == "MOD") {
-        eval_operand(tokens, env);
-    } else if (current == "CALL") {
-        eval_call(tokens, env);
-    } else if (current == "LOAD_LOCAL") {
-        eval_load_local(tokens, env);
-    } else if (current == "NEW_TABLE") {
-        eval_table(tokens, env);
-    } else if (current == "STORE_KEY") {
-        eval_store_key(tokens, env);
-    } else if (current == "POP") {
-        shiftTKS(tokens);
-        shiftStack(env);
-    } else if (current == "LOAD_KEY") {
-        eval_load_key(tokens, env);
-    } else if (current == "IF") {
-        return eval_if_stmt(tokens, env);
-    } else if (current == "EQ" || current == "GTE" || current == "LTE" ||
-               current == "GT" || current == "LT" || current == "NOE") {
-        eval_comparison_expr(tokens, env);
-    } else if (current == "NOT") {
-        auto value = shiftStack(env);
-        bool result = !isTruthy(value);
-        env.stack.push_back(result);
-    } else if (current == "AND" || current == "OR") {
-        eval_logicgate_expr(tokens, env);
-    } else if (current == "LOOP") {
-        return eval_loop_stmt(tokens, env);
-    } else if (current == "STORE_NESTED_ASSIGNMENT") {
-        eval_nested_assignment(tokens, env);
-    } else if (current == "DELETE") {
-        shiftTKS(tokens);
-        std::string fakeMemoryPtr = shiftTKS(tokens);
-        env.local_stack.erase(fakeMemoryPtr);
-    } else if (current == "DEFINE") {
-        eval_define(tokens, env);
-    } else {
-        std::cout << "THIS FAILED: " + shiftTKS(tokens) << std::endl;
-    }
-
-    return std::nullopt;
-}
-
-/*
-template <typename T>
-std::string type_name() {
-    int status = 0;
-    char* demangled = abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr,
-&status); std::string name = (status == 0) ? demangled : typeid(T).name();
-    std::free(demangled);
-    return name;
-}
-
-void printVariant(const valueVariant& v) {
-    std::visit([](auto&& arg) {
-        using T = std::decay_t<decltype(arg)>;
-        std::cout << "Type: " << type_name<T>() << "\n";
-    }, v);
-}
-*/
-
 std::string makeTemplateString(const std::string &s) {
     return "\"\"" + s + "\"\"";
 }
@@ -1075,7 +1003,148 @@ void initNatives(localStackType &local_stack) {
                 })}};
 }
 
-void evaluate(std::string &source) {
+void eval_import(StringVector &tokens, local_space<StringVector> &env) {
+    shiftTKS(tokens);
+    std::string path = shiftTKS(tokens);
+    int includes = std::stoi(shiftTKS(tokens));
+
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        throw "Cannot open file";
+    }
+
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    std::string content = buffer.str();
+
+    file.close();
+
+    parser Parser;
+    astToken ast = Parser.produceAST(content);
+    auto filename = std::filesystem::path(path).stem().string();
+
+    compiler compilerInstance;
+    compilerInstance.bytecode = "";
+    compilerInstance.identation = 0;
+    auto bytecode = compilerInstance.compile(ast, std::filesystem::path(path));
+    bytecode += "\nLOAD_LOCAL main\nCALL";
+    StringVector importedTokens = tokenize(bytecode);
+
+    auto scope = std::make_shared<local_space<StringVector>>();
+    initNatives(scope->local_stack);
+    scope->local_stack["__shinemoduleflag"] = "__shinemoduleflag";
+
+    while (!importedTokens.empty()) {
+        evalToken(importedTokens, *scope);
+    }
+
+    std::vector<std::string> includeExported;
+
+    for (int i = 0; i < includes; i++) {
+        auto name = std::get<std::string>(shiftStack(env));
+        includeExported.push_back(name);
+    }
+
+    for (auto &exported : scope->exposed_stack) {
+        if (includes > 0) {
+            if (std::find(includeExported.begin(), includeExported.end(), exported.first) == includeExported.end()) {
+                continue;
+            }
+        }
+        env.local_stack[exported.first] = exported.second;
+    }
+}
+
+void eval_export(StringVector &tokens, local_space<StringVector> &env) {
+    shiftTKS(tokens);
+    auto name = shiftStack(env);
+    auto value = shiftStack(env);
+
+    auto root = env.resolve("__shinemoduleflag");
+
+    root->exposed_stack[std::get<std::string>(name)] = value;
+}
+
+std::optional<bool> evalToken(
+    StringVector &tokens, local_space<StringVector> &env) {
+    std::string current = tokens[0];
+    std::cout << current << std::endl;
+
+    if (current == "function") {
+        eval_function(tokens, env);
+    } else if (current == "PUSH") {
+        eval_push(tokens, env);
+    } else if (current == "STORE_LOCAL") {
+        eval_store_local(tokens, env);
+    } else if (current == "DECLARE_LOCAL") {
+        eval_declare_local(tokens, env);
+    } else if (current == "ADD" || current == "SUB" || current == "MUL" ||
+               current == "DIV" || current == "POW" || current == "MOD") {
+        eval_operand(tokens, env);
+    } else if (current == "CALL") {
+        eval_call(tokens, env);
+    } else if (current == "LOAD_LOCAL") {
+        eval_load_local(tokens, env);
+    } else if (current == "NEW_TABLE") {
+        eval_table(tokens, env);
+    } else if (current == "STORE_KEY") {
+        eval_store_key(tokens, env);
+    } else if (current == "POP") {
+        shiftTKS(tokens);
+        shiftStack(env);
+    } else if (current == "LOAD_KEY") {
+        eval_load_key(tokens, env);
+    } else if (current == "IF") {
+        return eval_if_stmt(tokens, env);
+    } else if (current == "EQ" || current == "GTE" || current == "LTE" ||
+               current == "GT" || current == "LT" || current == "NOE") {
+        eval_comparison_expr(tokens, env);
+    } else if (current == "NOT") {
+        auto value = shiftStack(env);
+        bool result = !isTruthy(value);
+        env.stack.push_back(result);
+    } else if (current == "AND" || current == "OR") {
+        eval_logicgate_expr(tokens, env);
+    } else if (current == "LOOP") {
+        return eval_loop_stmt(tokens, env);
+    } else if (current == "STORE_NESTED_ASSIGNMENT") {
+        eval_nested_assignment(tokens, env);
+    } else if (current == "DELETE") {
+        shiftTKS(tokens);
+        std::string fakeMemoryPtr = shiftTKS(tokens);
+        env.local_stack.erase(fakeMemoryPtr);
+    } else if (current == "DEFINE") {
+        eval_define(tokens, env);
+    } else if (current == "IMPORT") {
+        eval_import(tokens, env);
+    } else if (current == "EXPORT") {
+        eval_export(tokens, env);
+    } else {
+        std::cout << "THIS FAILED: " + shiftTKS(tokens) << std::endl;
+    }
+
+    return std::nullopt;
+}
+
+/*
+template <typename T>
+std::string type_name() {
+    int status = 0;
+    char* demangled = abi::__cxa_demangle(typeid(T).name(), nullptr, nullptr,
+&status); std::string name = (status == 0) ? demangled : typeid(T).name();
+    std::free(demangled);
+    return name;
+}
+
+void printVariant(const valueVariant& v) {
+    std::visit([](auto&& arg) {
+        using T = std::decay_t<decltype(arg)>;
+        std::cout << "Type: " << type_name<T>() << "\n";
+    }, v);
+}
+*/
+
+local_space<StringVector> evaluate(std::string &source) {
     if (settings.verbose)
         std::cout << "GVM(Gem Virtual Machine) "
                      "has started"
@@ -1105,4 +1174,5 @@ void evaluate(std::string &source) {
                      "has finished evaluating"
                   << std::endl;
     // std::cout << '\n';
+    return env;
 }

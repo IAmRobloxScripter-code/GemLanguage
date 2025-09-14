@@ -409,7 +409,7 @@ void compiler::compile_reflect(astToken &node) {
 
     // reflect "./Numgem"
     // reflect "./Numgem" :: {abs}
-    //  shine stmt
+    // shine stmt
 
     std::string path = node.left->value;
     auto includes = node.params;
@@ -418,53 +418,12 @@ void compiler::compile_reflect(astToken &node) {
     path.erase(path.size() - 1, 1);
 
     auto actualPath = resolveImport(compiler::fileRoot, path);
-    std::ifstream file(actualPath);
-
-    if (!file.is_open()) {
-        throw std::runtime_error("Could not open file: " + actualPath.string());
+    for (auto &value : includes) {
+        compiler::concat(bytecode, compiler::spaces() + "PUSH " + value + "\n");
     }
-
-    std::stringstream buffer;
-    buffer << file.rdbuf();
-
-    std::string source = buffer.str();
-
-    parser parserInstance;
-    astToken ast = parserInstance.produceAST(source);
-    astToken exported{.kind = tokenKind::Program, .body = {}};
-
-    for (auto &ast : ast.body) {
-        if (ast->kind != tokenKind::Export) {
-            continue;
-        }
-        exported.body.push_back(ast->left);
-    }
-
-    if (includes.size() == 0) {
-        compiler compilerInstance;
-        compilerInstance.identation = 1;
-        compilerInstance.fileRoot = actualPath;
-        compilerInstance.compile_program(exported, false);
-        bytecode += compilerInstance.bytecode;
-    } else {
-        for (auto it = exported.body.begin(); it != exported.body.end();) {
-            auto include = *it;
-            if (std::find(includes.begin(), includes.end(), include->name) ==
-                includes.end()) {
-                it = exported.body.erase(it);
-            } else {
-                ++it;
-            }
-        }
-
-        compiler compilerInstance;
-        compilerInstance.identation = 1;
-        compilerInstance.fileRoot = actualPath;
-        compilerInstance.compile_program(exported, false);
-        bytecode += compilerInstance.bytecode;
-    }
-
-    compiler::concat(bytecode, "\n");
+    compiler::concat(bytecode,
+        compiler::spaces() + "IMPORT " + actualPath.string() + " " +
+            std::to_string(includes.size()) + "\n");
 }
 
 void compiler::compile_whileloop_stmt(astToken &node) {
@@ -591,6 +550,16 @@ void compiler::generate(astToken &node, bool isDeclaration) {
         compiler::compile_reflect(node);
         break;
     }
+    case tokenKind::Export: {
+        compiler::generate(node.left);
+        compiler::concat(bytecode,
+            compiler::spaces() + "LOAD_LOCAL " + node.left->name + "\n");
+        compiler::concat(
+            bytecode, compiler::spaces() + "PUSH " + node.left->name + "\n");
+
+        compiler::concat(bytecode, compiler::spaces() + "EXPORT" + "\n");
+        break;
+    }
     case tokenKind::WhileLoopStmt: {
         compiler::compile_whileloop_stmt(node);
         break;
@@ -603,9 +572,12 @@ void compiler::generate(astToken &node, bool isDeclaration) {
         compiler::concat(
             bytecode, compiler::spaces() + "DELETE " + node.value + "\n");
         break;
-    } case tokenKind::Self: {
-        std::string fileRootRaw = resolveImport(compiler::fileRoot, "").string();
-        compiler::concat(bytecode, compiler::spaces() + "PUSH \"" + fileRootRaw + "\"\n");
+    }
+    case tokenKind::Self: {
+        std::string fileRootRaw =
+            resolveImport(compiler::fileRoot, "").string();
+        compiler::concat(
+            bytecode, compiler::spaces() + "PUSH \"" + fileRootRaw + "\"\n");
         break;
     }
     default:
