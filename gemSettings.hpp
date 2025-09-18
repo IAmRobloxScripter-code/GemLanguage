@@ -3,7 +3,7 @@
 
 class Settings {
 public:
-    bool optimize = false;
+    bool debug = false;
     bool verbose = false;
     bool benchmark = false;
     

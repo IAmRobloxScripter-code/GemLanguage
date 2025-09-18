@@ -1,6 +1,5 @@
-#include "compiler/compiler.hpp"
-#include "compiler/vm.hpp"
 #include "gemSettings.hpp"
+#include "./backend/compiler.hpp"
 #include <algorithm>
 #include <deque>
 #include <filesystem>
@@ -8,6 +7,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <vector>
 
 // GGC - GENERAL GEM COMPILER
 
@@ -38,94 +38,30 @@ std::string readFile(const std::string &path) {
     return src;
 }
 
-std::string getBytecode(std::string &src, const std::filesystem::path& file) {
-    parser parserInstance;
-    astToken ast = parserInstance.produceAST(src);
-    compiler compilerInstance;
-    std::string bytecode = compilerInstance.compile(ast, file);
-
-    return bytecode;
-}
-
-size_t getMemoryUsageKB() {
-    std::ifstream statm("/proc/self/status");
-    std::string line;
-    while (std::getline(statm, line)) {
-        if (line.find("VmRSS:") == 0) {
-            std::string value = line.substr(6);
-            return std::stoul(value);
-        }
-    }
-    return 0;
-}
-
-template <typename Func> void benchmarkProgram(Func func) {
-    double elapsedSum = 0;
-    double memorySum = 0;
-    int iterations = 1000;
-    for (int i = 0; i < iterations; i++) {
-        long long mem_before = static_cast<long long>(getMemoryUsageKB());
-        auto start = std::chrono::high_resolution_clock::now();
-
-        func();
-
-        auto end = std::chrono::high_resolution_clock::now();
-        long long mem_after = static_cast<long long>(getMemoryUsageKB());
-
-        std::chrono::duration<double, std::milli> elapsed = end - start;
-        long long memDelta = mem_after - mem_before;
-        if (memDelta < 0)
-            memDelta = 0;
-
-        elapsedSum += elapsed.count();
-        memorySum += memDelta;
-    }
-
-    std::cout << "Average elapsed time: " << (elapsedSum / iterations) << " ms\n";
-    std::cout << "Average memory usage: " << (memorySum / iterations) << " KB\n";
-}
-
-class flags {
-  public:
-    void runBytecode(std::string &bytecode) {
-        if (settings.benchmark) {
-            benchmarkProgram([&]() { evaluate(bytecode); });
-        } else {
-            evaluate(bytecode);
-        }
-    }
-
-    void run(std::string &src, const std::filesystem::path& file) {
-        std::string bytecode = getBytecode(src, file);
-        runBytecode(bytecode);
-    }
-
-    void outBytecode(std::string &src, std::string &name, const std::filesystem::path& file) {
-        if (settings.benchmark) {
-            benchmarkProgram([&]() {
-                std::string bytecode = getBytecode(src, file);
-                std::ofstream outfile(name);
-                outfile << bytecode << std::endl;
-                outfile.close();
-            });
-        } else {
-            std::string bytecode = getBytecode(src, file);
-            std::ofstream outfile(name);
-            outfile << bytecode << std::endl;
-            outfile.close();
-        }
-    }
-};
-
 std::string shiftArguments(std::deque<std::string> &src) {
     std::string value = src.front();
     src.pop_front();
     return value;
 }
 
+void outfile(std::string &src, std::string &outname) {
+    std::ofstream file(outname);
+
+    if (file.is_open()) {
+        parser parser_instance;
+        auto ast = parser_instance.produceAST(src);
+        auto compiler = new gem_compiler;
+
+        std::string gemC = compiler->compile(ast);
+        file << gemC;
+        file.close();
+
+        delete compiler;
+    }
+}
+
 int main(int argc, char *argv[]) {
     try {
-        flags flagContainer;
         std::string inputFile = argc > 1 ? argv[1] : "";
         std::string fileName = std::filesystem::path(inputFile).stem();
         std::deque<std::string> arguments;
@@ -151,12 +87,12 @@ int main(int argc, char *argv[]) {
 
             flags.push_back(flag);
         }
-        std::string outFile = arguments.empty() ? fileName + ".o" : arguments.front();
+        std::string outFile = arguments.empty() ? fileName + ".c" : arguments.front();
 
         if (outFile == arguments.front() && outFile[0] != '-' && outFile[1] != '-') {
             shiftArguments(arguments);
         } else {
-            outFile = fileName + ".o";
+            outFile = fileName + ".c";
         }
 
         while (!arguments.empty() && arguments.front().size() > 1 && arguments.front()[0] == '-' &&
@@ -164,26 +100,20 @@ int main(int argc, char *argv[]) {
             std::string flag = shiftArguments(arguments);
             if (flag == "--verbose") {
                 settings.verbose = true;
-            } else if (flag == "--optimize") {
-                settings.optimize = true;
-            } else if (flag == "--benchmark") {
-                settings.benchmark = true;
             }
         }
 
         for (std::string &flag : flags) {
-            if (flag == "-b") {
+            if (flag == "-o") {
                 std::string src = readFile(inputFile);
-                flagContainer.runBytecode(src);
-            } else if (flag == "-o") {
-                std::string src = readFile(inputFile);
-                flagContainer.outBytecode(src, outFile, std::filesystem::path(inputFile));
+                outfile(src, outFile);
+            } else if (flag == "-d") {
+                settings.debug = true;
             }
         }
 
         if (flags.empty()) {
             std::string src = readFile(inputFile);
-            flagContainer.run(src, std::filesystem::path(inputFile));
         }
     } catch (const char *msg) {
         std::cerr << "Error: " << msg << "\n";

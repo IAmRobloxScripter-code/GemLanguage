@@ -1,0 +1,3 @@
+/home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/CMakeFiles/gem.dir
+/home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/CMakeFiles/edit_cache.dir
+/home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/CMakeFiles/rebuild_cache.dir
