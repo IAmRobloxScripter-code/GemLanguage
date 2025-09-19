@@ -30,5 +30,6 @@ class gem_compiler {
     void code_gen_conditionals(astToken &node);
     void code_gen_ifstmt(astToken &node);
     void code_gen_body(std::vector<std::shared_ptr<astToken>> body);
+    void code_gen_forloop(astToken &node);
     void link(const std::string &c_file);
 };

@@ -122,21 +122,38 @@ gem_object *make_string(const char *value) {
 gem_object *make_table(int size) {
 }
 
-// Number Operations
+gem_object *gem_add(gem_object *x, gem_object *y) {
+    gem_object *result;
+    
+    if (x->object_type == gem_number && y->object_type == gem_number) {
+        result = make_number(
+            ((gem_object_number *)x)->value + ((gem_object_number *)y)->value);
+    } else if (x->object_type == gem_string && y->object_type == gem_string) {
+        char *string = malloc(sizeof(char) * ((gem_object_string *)x)->size +
+        ((gem_object_string *)y)->size - 1);
+        memcpy(string,
+            ((gem_object_string *)x)->value,
+            ((gem_object_string *)x)->size - 1);
+            memcpy(string + ((gem_object_string *)x)->size - 1,
+            ((gem_object_string *)x)->value,
+            ((gem_object_string *)y)->size);
+            gem_object *temporary = make_string(string);
+            free(string);
+            
+            gem_check_free(x);
+        gem_check_free(y);
 
-gem_object *number_add(gem_object *x, gem_object *y) {
-    if (x->object_type != gem_number || y->object_type != gem_number) {
-        printf("Invalid type operation!");
+        return temporary;
+    } else {
+        printf("Invalid type operation");
         exit(1);
-    };
+    }
 
-    gem_object *result = make_number(
-        ((gem_object_number *)x)->value + ((gem_object_number *)y)->value);
     gem_check_free(x);
     gem_check_free(y);
-
-    return result;
 }
+
+// Number Operations
 
 gem_object *number_sub(gem_object *x, gem_object *y) {
     if (x->object_type != gem_number || y->object_type != gem_number) {
@@ -351,4 +368,10 @@ gem_object *gem_not_operator(gem_object *value) {
         printf("Invalid type for not operator!");
         exit(1);
     }
+}
+
+// Utility
+
+bool isTruthy(gem_object* bool_object) {
+    return ((gem_object_bool*)bool_object)->value;
 }

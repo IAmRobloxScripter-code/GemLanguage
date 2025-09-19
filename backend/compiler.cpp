@@ -9,6 +9,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <variant>
 
 tokenKind resolve_type(astToken &node, const std::string &side) {
     if (side == "left") {
@@ -80,12 +81,7 @@ std::string gem_compiler::code_gen_var_decl(astToken &node) {
 
 void gem_compiler::code_gen_binaryoperation(astToken &node) {
     if (node.op == "+") {
-        tokenKind token_type = resolve_type(node, "left");
-        if (token_type == tokenKind::NumberLiteral) {
-            gem_compiler::out << "number_add";
-        } else {
-            gem_compiler::out << "string_add";
-        }
+        gem_compiler::out << "gem_add";
     } else if (node.op == "-") {
         gem_compiler::out << "number_sub";
     } else if (node.op == "*") {
@@ -158,6 +154,27 @@ void gem_compiler::code_gen_ifstmt(astToken &node) {
     }
 }
 
+void gem_compiler::code_gen_forloop(astToken &node) {
+    if (std::holds_alternative<std::vector<std::shared_ptr<astToken>>>(
+            node.iterator)) {
+        auto iterator =
+            std::get<std::vector<std::shared_ptr<astToken>>>(node.iterator);
+        gem_compiler::out << "for (" << templates["object"] << node.params[0] << "=";
+        gem_compiler::code_gen(*iterator[0]);
+        gem_compiler::out << "; ";
+        gem_compiler::out << "number_lessThan(";
+        gem_compiler::out << node.params[0] << ", ";
+        gem_compiler::code_gen(*iterator[1]);
+        gem_compiler::out << ");";
+    }
+
+    gem_compiler::out << ") {\n";
+
+    gem_compiler::code_gen_body(node.body);
+
+    gem_compiler::out << "}\n";
+}
+
 std::optional<std::string> gem_compiler::code_gen(astToken &node) {
     switch (node.kind) {
     case tokenKind::Program:
@@ -188,6 +205,9 @@ std::optional<std::string> gem_compiler::code_gen(astToken &node) {
         break;
     case tokenKind::IfStmt:
         gem_compiler::code_gen_ifstmt(node);
+        break;
+    case tokenKind::ForLoopStmt:
+        gem_compiler::code_gen_forloop(node);
         break;
     default:
         break;
