@@ -117,48 +117,48 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named gem
+# Target rules for targets named gem_interpreter
 
 # Build rule for target.
-gem: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 gem
-.PHONY : gem
+gem_interpreter: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 gem_interpreter
+.PHONY : gem_interpreter
 
 # fast build rule for target.
-gem/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/build
-.PHONY : gem/fast
+gem_interpreter/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/build
+.PHONY : gem_interpreter/fast
 
-backend/compiler.o: backend/compiler.cpp.o
-.PHONY : backend/compiler.o
+backend/interpreter.o: backend/interpreter.cpp.o
+.PHONY : backend/interpreter.o
 
 # target to build an object file
-backend/compiler.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/backend/compiler.cpp.o
-.PHONY : backend/compiler.cpp.o
+backend/interpreter.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/backend/interpreter.cpp.o
+.PHONY : backend/interpreter.cpp.o
 
-backend/compiler.i: backend/compiler.cpp.i
-.PHONY : backend/compiler.i
+backend/interpreter.i: backend/interpreter.cpp.i
+.PHONY : backend/interpreter.i
 
 # target to preprocess a source file
-backend/compiler.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/backend/compiler.cpp.i
-.PHONY : backend/compiler.cpp.i
+backend/interpreter.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/backend/interpreter.cpp.i
+.PHONY : backend/interpreter.cpp.i
 
-backend/compiler.s: backend/compiler.cpp.s
-.PHONY : backend/compiler.s
+backend/interpreter.s: backend/interpreter.cpp.s
+.PHONY : backend/interpreter.s
 
 # target to generate assembly for a file
-backend/compiler.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/backend/compiler.cpp.s
-.PHONY : backend/compiler.cpp.s
+backend/interpreter.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/backend/interpreter.cpp.s
+.PHONY : backend/interpreter.cpp.s
 
 backend/lexer.o: backend/lexer.cpp.o
 .PHONY : backend/lexer.o
 
 # target to build an object file
 backend/lexer.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/backend/lexer.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/backend/lexer.cpp.o
 .PHONY : backend/lexer.cpp.o
 
 backend/lexer.i: backend/lexer.cpp.i
@@ -166,7 +166,7 @@ backend/lexer.i: backend/lexer.cpp.i
 
 # target to preprocess a source file
 backend/lexer.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/backend/lexer.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/backend/lexer.cpp.i
 .PHONY : backend/lexer.cpp.i
 
 backend/lexer.s: backend/lexer.cpp.s
@@ -174,7 +174,7 @@ backend/lexer.s: backend/lexer.cpp.s
 
 # target to generate assembly for a file
 backend/lexer.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/backend/lexer.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/backend/lexer.cpp.s
 .PHONY : backend/lexer.cpp.s
 
 backend/parser.o: backend/parser.cpp.o
@@ -182,7 +182,7 @@ backend/parser.o: backend/parser.cpp.o
 
 # target to build an object file
 backend/parser.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/backend/parser.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/backend/parser.cpp.o
 .PHONY : backend/parser.cpp.o
 
 backend/parser.i: backend/parser.cpp.i
@@ -190,7 +190,7 @@ backend/parser.i: backend/parser.cpp.i
 
 # target to preprocess a source file
 backend/parser.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/backend/parser.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/backend/parser.cpp.i
 .PHONY : backend/parser.cpp.i
 
 backend/parser.s: backend/parser.cpp.s
@@ -198,32 +198,32 @@ backend/parser.s: backend/parser.cpp.s
 
 # target to generate assembly for a file
 backend/parser.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/backend/parser.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/backend/parser.cpp.s
 .PHONY : backend/parser.cpp.s
 
-main.o: main.cpp.o
-.PHONY : main.o
+interpreter_main.o: interpreter_main.cpp.o
+.PHONY : interpreter_main.o
 
 # target to build an object file
-main.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/main.cpp.o
-.PHONY : main.cpp.o
+interpreter_main.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o
+.PHONY : interpreter_main.cpp.o
 
-main.i: main.cpp.i
-.PHONY : main.i
+interpreter_main.i: interpreter_main.cpp.i
+.PHONY : interpreter_main.i
 
 # target to preprocess a source file
-main.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/main.cpp.i
-.PHONY : main.cpp.i
+interpreter_main.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.i
+.PHONY : interpreter_main.cpp.i
 
-main.s: main.cpp.s
-.PHONY : main.s
+interpreter_main.s: interpreter_main.cpp.s
+.PHONY : interpreter_main.s
 
 # target to generate assembly for a file
-main.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/main.cpp.s
-.PHONY : main.cpp.s
+interpreter_main.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.s
+.PHONY : interpreter_main.cpp.s
 
 # Help Target
 help:
@@ -233,19 +233,19 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... gem"
-	@echo "... backend/compiler.o"
-	@echo "... backend/compiler.i"
-	@echo "... backend/compiler.s"
+	@echo "... gem_interpreter"
+	@echo "... backend/interpreter.o"
+	@echo "... backend/interpreter.i"
+	@echo "... backend/interpreter.s"
 	@echo "... backend/lexer.o"
 	@echo "... backend/lexer.i"
 	@echo "... backend/lexer.s"
 	@echo "... backend/parser.o"
 	@echo "... backend/parser.i"
 	@echo "... backend/parser.s"
-	@echo "... main.o"
-	@echo "... main.i"
-	@echo "... main.s"
+	@echo "... interpreter_main.o"
+	@echo "... interpreter_main.i"
+	@echo "... interpreter_main.s"
 .PHONY : help
 
 

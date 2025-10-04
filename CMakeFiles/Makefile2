@@ -63,11 +63,11 @@ CMAKE_BINARY_DIR = /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
-all: CMakeFiles/gem.dir/all
+all: CMakeFiles/gem_interpreter.dir/all
 .PHONY : all
 
 # The main recursive "codegen" target.
-codegen: CMakeFiles/gem.dir/codegen
+codegen: CMakeFiles/gem_interpreter.dir/codegen
 .PHONY : codegen
 
 # The main recursive "preinstall" target.
@@ -75,40 +75,40 @@ preinstall:
 .PHONY : preinstall
 
 # The main recursive "clean" target.
-clean: CMakeFiles/gem.dir/clean
+clean: CMakeFiles/gem_interpreter.dir/clean
 .PHONY : clean
 
 #=============================================================================
-# Target rules for target CMakeFiles/gem.dir
+# Target rules for target CMakeFiles/gem_interpreter.dir
 
 # All Build rule for target.
-CMakeFiles/gem.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/CMakeFiles --progress-num=1,2,3,4,5 "Built target gem"
-.PHONY : CMakeFiles/gem.dir/all
+CMakeFiles/gem_interpreter.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/CMakeFiles --progress-num=1,2,3,4,5 "Built target gem_interpreter"
+.PHONY : CMakeFiles/gem_interpreter.dir/all
 
 # Build rule for subdir invocation for target.
-CMakeFiles/gem.dir/rule: cmake_check_build_system
+CMakeFiles/gem_interpreter.dir/rule: cmake_check_build_system
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/CMakeFiles 5
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/gem.dir/all
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/gem_interpreter.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/CMakeFiles 0
-.PHONY : CMakeFiles/gem.dir/rule
+.PHONY : CMakeFiles/gem_interpreter.dir/rule
 
 # Convenience name for target.
-gem: CMakeFiles/gem.dir/rule
-.PHONY : gem
+gem_interpreter: CMakeFiles/gem_interpreter.dir/rule
+.PHONY : gem_interpreter
 
 # codegen rule for target.
-CMakeFiles/gem.dir/codegen:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/codegen
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/CMakeFiles --progress-num=1,2,3,4,5 "Finished codegen for target gem"
-.PHONY : CMakeFiles/gem.dir/codegen
+CMakeFiles/gem_interpreter.dir/codegen:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/codegen
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/scripting_entity/Desktop/projects/librariesLune/Gem/Gem-C/CMakeFiles --progress-num=1,2,3,4,5 "Finished codegen for target gem_interpreter"
+.PHONY : CMakeFiles/gem_interpreter.dir/codegen
 
 # clean rule for target.
-CMakeFiles/gem.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem.dir/build.make CMakeFiles/gem.dir/clean
-.PHONY : CMakeFiles/gem.dir/clean
+CMakeFiles/gem_interpreter.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/gem_interpreter.dir/build.make CMakeFiles/gem_interpreter.dir/clean
+.PHONY : CMakeFiles/gem_interpreter.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

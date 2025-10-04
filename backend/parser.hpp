@@ -36,12 +36,17 @@ enum class tokenKind
     Import,
     Export,
     Extern,
-    Delete,
-    Self,
 };
 
 std::string generateRandomString(size_t length);
 // ik this struct is big and uses a lot of memory but too late to change 80% of the code now
+struct astToken;
+
+struct map_property {
+    std::shared_ptr<astToken> key;
+    std::shared_ptr<astToken> value;
+};
+
 struct astToken
 {
     tokenKind kind = tokenKind::Unknown;
@@ -51,30 +56,31 @@ struct astToken
     std::vector<std::shared_ptr<astToken>> elifChain;
     std::vector<std::shared_ptr<astToken>> elseBody;
     std::vector<std::shared_ptr<astToken>> body;
-    std::string symbol;
     std::string name;
     std::string op;
     std::vector<std::shared_ptr<astToken>> args;
     std::shared_ptr<astToken> caller;
     std::vector<std::string> params;
-    std::vector<std::map<std::string, std::variant<std::shared_ptr<astToken>, std::string, float, int, std::vector<std::string>>>> properties;
+    std::vector<map_property> properties;
     std::shared_ptr<astToken> object;
     std::shared_ptr<astToken> property;
     std::variant<std::shared_ptr<astToken>, std::vector<std::shared_ptr<astToken>>> iterator;
     bool computed;
+    int line=0;
 };
 
 class parser
 {
 public:
-    astToken produceAST(const std::string &source);
+    astToken produceAST(const std::string &source, const std::string &file_name="main.gem");
+    std::string get_line();
     astToken parse_primary_expr();
     astToken parse_var_declaration();
     astToken parse_object_expr();
     astToken parseStmt();
     lexer_token at();
     lexer_token eat();
-    lexer_token expect(TokenType type);
+    lexer_token expect(TokenType type, std::string kindof = "expression");
     astToken parse_expr();
     void skip_semi_colon();
     astToken parse_additive_expr();

@@ -44,13 +44,14 @@ std::string shiftArguments(std::deque<std::string> &src) {
     return value;
 }
 
-void outfile(std::string &src, std::string &outname) {
+void outfile(std::string &src, std::string &outname, std::string &inname) {
     std::ofstream file(outname);
 
     if (file.is_open()) {
         parser parser_instance;
         auto ast = parser_instance.produceAST(src);
         auto compiler = new gem_compiler;
+        compiler->file_name = inname + ".gem";
 
         std::string gemC = compiler->compile(ast);
         file << gemC;
@@ -106,7 +107,7 @@ int main(int argc, char *argv[]) {
         for (std::string &flag : flags) {
             if (flag == "-o") {
                 std::string src = readFile(inputFile);
-                outfile(src, outFile);
+                outfile(src, outFile, fileName);
             } else if (flag == "-d") {
                 settings.debug = true;
             }

@@ -49,15 +49,18 @@ enum class TokenType
     Delete,
     Self,
     
-    EndOfFile
+    EndOfFile,
+    Any
 };
 
 struct lexer_token
 {
     std::string value;
     TokenType type;
+    int line;
+    int column;
 };
 
-std::vector<lexer_token> tokenize(const std::string &);
+std::vector<lexer_token> tokenize(const std::string &sourceCode, const std::string &file_name);
 
 #endif

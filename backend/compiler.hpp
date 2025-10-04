@@ -14,8 +14,9 @@ std::string string_format(const std::string &src, Args&&... args) {
 
 class gem_compiler {
   public:
-    std::ostringstream out;
-
+    std::vector<std::ostringstream> streams;
+    std::ostringstream* out = nullptr;
+    std::string file_name;
     std::string compile(astToken &ast);
 
   public:
@@ -31,5 +32,18 @@ class gem_compiler {
     void code_gen_ifstmt(astToken &node);
     void code_gen_body(std::vector<std::shared_ptr<astToken>> body);
     void code_gen_forloop(astToken &node);
+    void add_header(const std::string &header);
+    std::optional<std::string> code_gen_function(astToken &node);
     void link(const std::string &c_file);
+
+  public:
+    void make_stream() {
+      streams.emplace_back();
+      out = &streams.back();
+    };
+
+    void free_stream() {
+      streams.pop_back();
+      out = &streams.back();
+    }
 };

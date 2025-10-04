@@ -1,0 +1,1 @@
+/usr/sbin/c++ -O3 -DNDEBUG -s -Wl,--dependency-file=CMakeFiles/gem_interpreter.dir/link.d CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o CMakeFiles/gem_interpreter.dir/backend/parser.cpp.o CMakeFiles/gem_interpreter.dir/backend/lexer.cpp.o CMakeFiles/gem_interpreter.dir/backend/interpreter.cpp.o -o gem_interpreter

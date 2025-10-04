@@ -1,13 +1,14 @@
 #include "lexer.hpp"
+#include "debugger.hpp"
 
 #include <cstring>
 #include <deque>
 #include <iostream>
 #include <map>
 #include <sstream>
+#include <unordered_map>
 #include <variant>
 #include <vector>
-#include <unordered_map>
 
 std::vector<std::string> splitString(const std::string &sourceCode) {
     std::vector<std::string> words;
@@ -25,15 +26,18 @@ std::string shift(std::deque<std::string> &src) {
     return value;
 }
 
-lexer_token token(std::string value, TokenType type) {
+lexer_token token(
+    std::string value, TokenType type, int line = 0, int column = 1) {
     lexer_token token;
     token.type = type;
     token.value = value;
+    token.line = line;
+    token.column = column;
     return token;
 }
 
 bool isNumber(std::string x) {
-    std::string matches = "0123456789e.";
+    std::string matches = "0123456789e._";
     return matches.find(x) != std::string::npos;
 }
 
@@ -58,8 +62,7 @@ std::unordered_map<std::string, TokenType> keywords = {{"var", TokenType::Var},
     {"shine", TokenType::Shine},
     {"extern", TokenType::Extern},
     {"true", TokenType::Boolean},
-    {"false", TokenType::Boolean}
-};
+    {"false", TokenType::Boolean}};
 
 bool isStringBody(std::string x) {
     return x == "'" || x == "`" || x == "\"";
@@ -78,64 +81,81 @@ bool isSpecialString(const std::string &str) {
     return false;
 }
 
-std::vector<lexer_token> tokenize(const std::string &sourceCode) {
+std::vector<lexer_token> tokenize(
+    const std::string &sourceCode, const std::string &file_name) {
     std::vector<lexer_token> tokens;
-    auto v = splitString(sourceCode);
+    auto v = splitString(sourceCode + "\n");
     std::deque<std::string> src = std::deque(v.begin(), v.end());
+    int line = 1;
+    int column = 1;
+
+    std::string invalid_characters;
 
     while (!src.empty()) {
         std::string c = src.front();
-
+        column++;
+        if (c == "\n" || c == "\r") {
+            line++;
+            column = 1;
+        }
         if (isWhitespace(c[0])) {
             shift(src);
             continue;
         };
 
         if (c == "(") {
-            tokens.push_back(token(shift(src), TokenType::OpenParen));
+            tokens.push_back(
+                token(shift(src), TokenType::OpenParen, line, column));
         }
 
         else if (c == ")") {
-            tokens.push_back(token(shift(src), TokenType::CloseParen));
+            tokens.push_back(
+                token(shift(src), TokenType::CloseParen, line, column));
         }
 
         else if (c == "{") {
-            tokens.push_back(token(shift(src), TokenType::OpenBrace));
+            tokens.push_back(
+                token(shift(src), TokenType::OpenBrace, line, column));
         }
 
         else if (c == "}") {
-            tokens.push_back(token(shift(src), TokenType::CloseBrace));
+            tokens.push_back(
+                token(shift(src), TokenType::CloseBrace, line, column));
         }
 
         else if (c == "[") {
-            tokens.push_back(token(shift(src), TokenType::OpenBracket));
+            tokens.push_back(
+                token(shift(src), TokenType::OpenBracket, line, column));
         }
 
         else if (c == "]") {
-            tokens.push_back(token(shift(src), TokenType::CloseBracket));
+            tokens.push_back(
+                token(shift(src), TokenType::CloseBracket, line, column));
         } else if (c == "-" && src[1] == ">") {
             shift(src);
             shift(src);
-            tokens.push_back(token("->", TokenType::Arrow));
-
+            tokens.push_back(token("->", TokenType::Arrow, line, column));
         } else if (c == ">" || c == "<" || c == "!") {
             if (src[1] == "=") {
                 std::string op = shift(src);
                 shift(src);
-                tokens.push_back(
-                    token(op + "=", TokenType::ComparisonOperator));
+                tokens.push_back(token(
+                    op + "=", TokenType::ComparisonOperator, line, column));
                 continue;
             }
 
-            tokens.push_back(token(shift(src), TokenType::ComparisonOperator));
+            tokens.push_back(
+                token(shift(src), TokenType::ComparisonOperator, line, column));
         } else if (c == "=") {
             if (src[1] == "=") {
                 shift(src);
                 shift(src);
-                tokens.push_back(token("==", TokenType::ComparisonOperator));
+                tokens.push_back(
+                    token("==", TokenType::ComparisonOperator, line, column));
                 continue;
             }
-            tokens.push_back(token(shift(src), TokenType::Equals));
+            tokens.push_back(
+                token(shift(src), TokenType::Equals, line, column));
         }
 
         else if (c == "+" || c == "-" || c == "*" || c == "/" || c == "^" ||
@@ -143,45 +163,45 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode) {
             if (src[1] == "=") {
                 std::string op = shift(src);
                 shift(src);
-                tokens.push_back(token(op + "=", TokenType::Equals));
+                tokens.push_back(
+                    token(op + "=", TokenType::Equals, line, column));
 
                 continue;
             }
-            tokens.push_back(token(shift(src), TokenType::BinaryOperator));
-        }
-
-        else if (c == "=") {
-            tokens.push_back(token(shift(src), TokenType::Equals));
+            tokens.push_back(
+                token(shift(src), TokenType::BinaryOperator, line, column));
         }
 
         else if (c == ".") {
-            tokens.push_back(token(shift(src), TokenType::Dot));
+            tokens.push_back(token(shift(src), TokenType::Dot, line, column));
         }
 
         else if (c == ":") {
             if (src[1] == ":") {
                 shift(src);
                 shift(src);
-                tokens.push_back(token("::", TokenType::DoubleColon));
+                tokens.push_back(
+                    token("::", TokenType::DoubleColon, line, column));
                 continue;
             };
-            tokens.push_back(token(shift(src), TokenType::Colon));
+            tokens.push_back(token(shift(src), TokenType::Colon, line, column));
         }
 
         else if (c == ";") {
-            tokens.push_back(token(shift(src), TokenType::SemiColon));
+            tokens.push_back(
+                token(shift(src), TokenType::SemiColon, line, column));
         }
 
         else if (c == ",") {
-            tokens.push_back(token(shift(src), TokenType::Comma));
+            tokens.push_back(token(shift(src), TokenType::Comma, line, column));
         } else if (c + src[1] == "&&") {
             shift(src);
             shift(src);
-            tokens.push_back(token("&&", TokenType::Keyword));
+            tokens.push_back(token("&&", TokenType::Keyword, line, column));
         } else if (c + src[1] == "||") {
             shift(src);
             shift(src);
-            tokens.push_back(token("||", TokenType::Keyword));
+            tokens.push_back(token("||", TokenType::Keyword, line, column));
         } else if (isStringBody(c)) {
             std::string body = shift(src);
 
@@ -201,7 +221,7 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode) {
 
             body += shift(src);
 
-            tokens.push_back(token(body, TokenType::String));
+            tokens.push_back(token(body, TokenType::String, line, column));
         }
 
         else if (isAlpha(c)) {
@@ -212,20 +232,47 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode) {
             }
 
             if (keywords.find(keyword) != keywords.end()) {
-                tokens.push_back(token(keyword, keywords.at(keyword)));
+                tokens.push_back(
+                    token(keyword, keywords.at(keyword), line, column));
             } else {
-                tokens.push_back(token(keyword, TokenType::Identifier));
+                tokens.push_back(
+                    token(keyword, TokenType::Identifier, line, column));
             }
         }
 
         else if (isNumber(c)) {
             std::string number;
-
             while (!src.empty() && isNumber(src[0])) {
                 number += shift(src);
             }
+            int len = number.size() - 1;
 
-            tokens.push_back(token(number, TokenType::Number));
+            if (number[len] == 'e' || number[len] == '.' ||
+                number[len] == '_') {
+                error(error_type::lexical_error,
+                    add_pointers("^", number, len, len),
+                    file_name,
+                    line,
+                    "Invalid number literal!");
+                exit(1);
+            }
+
+            number.erase(
+                std::remove(number.begin(), number.end(), '_'), number.end());
+            int amnt_of_e = std::count(number.begin(), number.end(), 'e');
+            int amnt_of_dots = std::count(number.begin(), number.end(), '.');
+
+            if (amnt_of_e > 1 || amnt_of_dots > 1) {
+                error(error_type::lexical_error,
+                    add_pointers("~", number, 0, len),
+                    file_name,
+                    line,
+                    "Invalid number literal!");
+                exit(1);
+            }
+
+            tokens.push_back(token(number, TokenType::Number, line, column));
+
         } else if (c + src[1] == "##") {
             shift(src);
             shift(src);
@@ -242,7 +289,8 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode) {
                 shift(src);
                 shift(src);
 
-                tokens.push_back(token(comment, TokenType::Comment));
+                tokens.push_back(
+                    token(comment, TokenType::Comment, line, column));
             } else {
                 std::string comment;
 
@@ -250,14 +298,24 @@ std::vector<lexer_token> tokenize(const std::string &sourceCode) {
                     comment += shift(src);
                 }
 
-                tokens.push_back(token(comment, TokenType::Comment));
+                tokens.push_back(
+                    token(comment, TokenType::Comment, line, column));
             }
         } else {
-            throw "Invalid character " + c;
+            invalid_characters += shift(src);
+            continue;
         }
     }
+    tokens.push_back(token("eof", TokenType::EndOfFile, line, column));
 
-    tokens.push_back(token("eof", TokenType::EndOfFile));
-
+    if (invalid_characters.size() > 0) {
+        error(error_type::lexical_error,
+            add_pointers(
+                "^", invalid_characters, 0, invalid_characters.size() - 1),
+            file_name,
+            line,
+            "Invalid character(s)!");
+        exit(1);
+    }
     return tokens;
 }

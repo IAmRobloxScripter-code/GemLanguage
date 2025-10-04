@@ -1,5 +1,7 @@
 #include "parser.hpp"
 #include "../gemSettings.hpp"
+#include "debugger.hpp"
+#include "magic_enum/magic_enum.hpp"
 #include <any>
 #include <bits/chrono.h>
 #include <deque>
@@ -12,13 +14,37 @@
 #include <vector>
 
 std::deque<lexer_token> tokens;
-astToken parser::produceAST(const std::string &source) {
+std::vector<std::string> lines_of_code;
+std::string file_name;
+
+std::string parser::get_line() {
+    std::string line;
+    uint64_t line_count = parser::at().line;
+    uint64_t index = 0;
+    while (tokens[index].line == line_count) {
+        line += tokens[index].value + " ";
+        index++;
+    }
+
+    return line;
+}
+
+astToken parser::produceAST(
+    const std::string &source, const std::string &name) {
+    tokens.clear();
+    lines_of_code.clear();
+    file_name = name;
     std::vector<std::shared_ptr<astToken>> body;
     if (settings.verbose)
         std::cout << "Tokenizing file content" << std::endl;
 
-    auto v = tokenize(source);
+    auto v = tokenize(source, file_name);
     tokens = std::deque(v.begin(), v.end());
+    int eof_line = tokens.at(tokens.size() - 1).line;
+
+    for (size_t line = 1; line < eof_line; ++line) {
+        lines_of_code.push_back(parser::get_line());
+    }
 
     if (settings.verbose)
         std::cout << "Tokenizing file content has been finished" << std::endl;
@@ -55,9 +81,42 @@ lexer_token parser::eat() {
     return value;
 }*/
 
-lexer_token parser::expect(TokenType type) {
+lexer_token parser::expect(TokenType type, std::string kindof) {
+    if (type == TokenType::Any) {
+        if (tokens.size() == 0 || tokens[0].type == TokenType::EndOfFile) {
+            std::string full_line = lines_of_code[lines_of_code.size() - 1];
+            std::string message =
+                add_pointers("~", full_line, 0, full_line.size());
+            error(error_type::parsing_error,
+                message,
+                file_name,
+                lines_of_code.size() - 1,
+                "Expected " + kindof + " after statement/expression!");
+            exit(1);
+        } else {
+            return parser::at();
+        }
+    };
+
     if (parser::at().type != type) {
-        throw "Invalid type";
+        int line = parser::at().line - 1;
+        std::string full_line;
+
+        if (line > lines_of_code.size() - 1) {
+            full_line = lines_of_code[lines_of_code.size() - 1];
+        } else {
+            full_line = lines_of_code[line];
+        }
+
+        std::string message = add_pointers(
+            "~", full_line, parser::at().column - 1, parser::at().value.size());
+        error(error_type::parsing_error,
+            message,
+            file_name,
+            parser::at().line,
+            "Expected " + std::string(magic_enum::enum_name(type)) + ", got " +
+                std::string(magic_enum::enum_name(parser::at().type)) + "!");
+        exit(1);
     };
 
     return parser::eat();
@@ -84,9 +143,11 @@ astToken parser::parseStmt() {
     case TokenType::Return:
         return parser::parse_return_stmt();
     case TokenType::Keyword: {
-        auto value = parser::eat().value;
+        auto token = parser::eat();
         parser::skip_semi_colon();
-        return astToken{.kind = tokenKind::Keyword, .value = value};
+        return astToken{.kind = tokenKind::Keyword,
+            .value = token.value,
+            .line = token.line};
     }
     case TokenType::Reflect:
         return parser::parse_reflect();
@@ -94,11 +155,6 @@ astToken parser::parseStmt() {
         return parser::parse_shine();
     case TokenType::Extern:
         return parser::parse_extern();
-    case TokenType::Boolean:
-        return astToken{
-            .kind = tokenKind::BooleanLiteral,
-            .value = parser::eat().value
-        };
     default:
         return parser::parse_expr();
     };
@@ -108,18 +164,9 @@ astToken parser::parse_expr() {
     return parser::parse_unary_expr();
 }
 
-std::string getFunctionName() {
-    static int ID = 0;
-    ID++;
-    if (std::to_string(ID).size() < 8) {
-        return "0x" + std::string(8 - std::to_string(ID).size(), '0') +
-               std::to_string(ID);
-    } else {
-        return "0x" + std::to_string(ID);
-    }
-}
-
 astToken parser::parse_extern() {
+    int line = parser::at().line;
+
     parser::eat();
 
     astToken identifier = parser::parse_primary_expr();
@@ -145,19 +192,25 @@ astToken parser::parse_extern() {
         .right = std::make_shared<astToken>(path),
         .left = std::make_shared<astToken>(identifier),
         .name = identifier.value,
-        .params = inputTypes};
+        .params = inputTypes,
+        .line = line};
 }
 
 astToken parser::parse_shine() {
+    int line = parser::at().line;
+
     parser::eat();
     astToken stmt = parser::parseStmt();
     parser::skip_semi_colon();
 
-    return astToken{
-        .kind = tokenKind::Export, .left = std::make_shared<astToken>(stmt)};
+    return astToken{.kind = tokenKind::Export,
+        .left = std::make_shared<astToken>(stmt),
+        .line = line};
 }
 
 astToken parser::parse_reflect() {
+    int line = parser::at().line;
+
     parser::eat();
     astToken path = parser::parse_primary_expr();
 
@@ -180,20 +233,26 @@ astToken parser::parse_reflect() {
 
         return astToken{.kind = tokenKind::Import,
             .left = std::make_shared<astToken>(path),
-            .params = include};
+            .params = include,
+            .line = line};
     } else {
         parser::skip_semi_colon();
 
         return astToken{.kind = tokenKind::Import,
-            .left = std::make_shared<astToken>(path)};
+            .left = std::make_shared<astToken>(path),
+            .line = line};
     }
 }
 
 astToken parser::parse_return_stmt() {
+    int line = parser::at().line;
+
     parser::eat();
+    parser::expect(TokenType::Any);
     auto right = std::make_shared<astToken>(parser::parseStmt());
     parser::skip_semi_colon();
-    return astToken{.kind = tokenKind::ReturnStmt, .right = right};
+    return astToken{
+        .kind = tokenKind::ReturnStmt, .right = right, .line = line};
 }
 
 astToken parser::parse_or_keyword() {
@@ -206,13 +265,15 @@ astToken parser::parse_or_keyword() {
         left = astToken{.kind = tokenKind::LogicGateExpr,
             .right = std::make_shared<astToken>(right),
             .left = std::make_shared<astToken>(left),
-            .op = "or"};
+            .op = "or",
+            .line = left.line};
     }
 
     return left;
 }
 
 astToken parser::parse_and_keyword() {
+
     astToken left = parser::parse_comparasion_expr();
 
     while (parser::at().value == "&&") {
@@ -222,14 +283,18 @@ astToken parser::parse_and_keyword() {
         left = astToken{.kind = tokenKind::LogicGateExpr,
             .right = std::make_shared<astToken>(right),
             .left = std::make_shared<astToken>(left),
-            .op = "and"};
+            .op = "and",
+            .line = left.line};
     }
 
     return left;
 }
 
 astToken parser::parse_while_loop_stmt() {
+    int line = parser::at().line;
+
     parser::eat();
+    parser::expect(TokenType::Any, "condition");
 
     astToken condition = parser::parse_expr();
 
@@ -243,6 +308,7 @@ astToken parser::parse_while_loop_stmt() {
         }
         parser::expect(TokenType::CloseBrace);
     } else {
+        parser::expect(TokenType::Any);
         body.push_back(std::make_shared<astToken>(parser::parseStmt()));
     }
 
@@ -250,10 +316,13 @@ astToken parser::parse_while_loop_stmt() {
 
     return astToken{.kind = tokenKind::WhileLoopStmt,
         .left = std::make_shared<astToken>(condition),
-        .body = body};
+        .body = body,
+        .line = line};
 }
 
 astToken parser::parse_for_loop_stmt() {
+    int line = parser::at().line;
+
     parser::eat();
 
     /*
@@ -261,6 +330,7 @@ astToken parser::parse_for_loop_stmt() {
 
         }
     */
+    parser::expect(TokenType::Any, "arguments");
 
     std::vector<std::shared_ptr<astToken>> argumentsAST =
         parser::parse_arguments();
@@ -275,6 +345,7 @@ astToken parser::parse_for_loop_stmt() {
     std::variant<std::shared_ptr<astToken>,
         std::vector<std::shared_ptr<astToken>>>
         expr;
+    parser::expect(TokenType::Any, "iterator");
 
     if (parser::at().type == TokenType::OpenParen) {
         expr = parser::parse_arguments();
@@ -292,6 +363,7 @@ astToken parser::parse_for_loop_stmt() {
         }
         parser::expect(TokenType::CloseBrace);
     } else {
+        parser::expect(TokenType::Any);
         body.push_back(std::make_shared<astToken>(parser::parseStmt()));
     }
 
@@ -300,11 +372,14 @@ astToken parser::parse_for_loop_stmt() {
     return astToken{.kind = tokenKind::ForLoopStmt,
         .body = body,
         .params = arguments,
-        .iterator = expr};
+        .iterator = expr,
+        .line = line};
 }
 
 astToken parser::parse_if_stmt(bool isELIFChain) {
+    int line = parser::at().line;
     parser::eat();
+    parser::expect(TokenType::Any, "condition");
     astToken condition = parser::parse_expr();
 
     std::vector<std::shared_ptr<astToken>> body;
@@ -317,6 +392,7 @@ astToken parser::parse_if_stmt(bool isELIFChain) {
         }
         parser::expect(TokenType::CloseBrace);
     } else {
+        parser::expect(TokenType::Any);
         body.push_back(std::make_shared<astToken>(parser::parseStmt()));
     }
 
@@ -343,6 +419,7 @@ astToken parser::parse_if_stmt(bool isELIFChain) {
                 parser::expect(TokenType::CloseBrace);
                 parser::skip_semi_colon();
             } else {
+                parser::expect(TokenType::Any);
                 elsebody.push_back(
                     std::make_shared<astToken>(parser::parseStmt()));
             }
@@ -355,14 +432,15 @@ astToken parser::parse_if_stmt(bool isELIFChain) {
         .left = std::make_shared<astToken>(condition),
         .elifChain = elifChain,
         .elseBody = elsebody,
-        .body = body};
+        .body = body,
+        .line = line};
 }
 
 astToken parser::parse_function_declaration() {
+    int line = parser::at().line;
     parser::eat();
-    std::string identifier = (parser::at().type == TokenType::Identifier)
-                                 ? parser::eat().value
-                                 : getFunctionName();
+    std::string identifier =
+        (parser::at().type == TokenType::Identifier) ? parser::eat().value : "";
 
     std::vector<std::shared_ptr<astToken>> args = parser::parse_arguments();
     std::vector<std::string> params;
@@ -380,30 +458,30 @@ astToken parser::parse_function_declaration() {
     }
     parser::expect(TokenType::CloseBrace);
 
-    return astToken{
-        .kind = tokenKind::FunctionDeclaration,
+    return astToken{.kind = tokenKind::FunctionDeclaration,
         .body = body,
         .name = identifier,
         .params = params,
-    };
+        .line = line};
 }
 
 astToken parser::parse_var_declaration() {
+    int line = parser::at().line;
     parser::eat();
     std::string identifier = parser::expect(TokenType::Identifier).value;
 
     if (parser::at().type == TokenType::Equals) {
         parser::eat();
+        parser::expect(TokenType::Any, "value");
         std::shared_ptr<astToken> value =
             std::make_shared<astToken>(parser::parseStmt());
 
         parser::skip_semi_colon();
 
-        return astToken{
-            .kind = tokenKind::VariableDeclaration,
+        return astToken{.kind = tokenKind::VariableDeclaration,
             .right = value,
             .name = identifier,
-        };
+            .line = line};
     };
 
     parser::skip_semi_colon();
@@ -411,7 +489,8 @@ astToken parser::parse_var_declaration() {
     return astToken{.kind = tokenKind::VariableDeclaration,
         .right = std::make_shared<astToken>(
             astToken{.kind = tokenKind::NumberLiteral, .value = "0"}),
-        .name = identifier};
+        .name = identifier,
+        .line = line};
 }
 
 astToken parser::parse_assignment_expr() {
@@ -420,12 +499,15 @@ astToken parser::parse_assignment_expr() {
     if (parser::at().type == TokenType::Equals) {
         std::string op = parser::eat().value;
         astToken right;
+        parser::expect(TokenType::Any, "value");
+
         if (op[0] == '+' || op[0] == '-' || op[0] == '*' || op[0] == '/' ||
             op[0] == '^' || op[0] == '%') {
             right = astToken{.kind = tokenKind::BinaryExpr,
                 .right = std::make_shared<astToken>(parser::parse_or_keyword()),
                 .left = std::make_shared<astToken>(left),
-                .op = std::string(1, op[0])};
+                .op = std::string(1, op[0]),
+                .line = left.line};
         } else {
             right = parser::parse_or_keyword();
         }
@@ -434,7 +516,8 @@ astToken parser::parse_assignment_expr() {
 
         return astToken{.kind = tokenKind::AssignmentExpr,
             .right = std::make_shared<astToken>(right),
-            .left = std::make_shared<astToken>(left)};
+            .left = std::make_shared<astToken>(left),
+            .line = left.line};
     }
 
     return left;
@@ -459,11 +542,13 @@ astToken parser::parse_assignment_expr() {
 astToken parser::parse_unary_expr() {
     if (parser::at().value == "-" || parser::at().value == "!") {
         std::string op = parser::eat().value;
+        parser::expect(TokenType::Any, "value");
         astToken value = parser::parse_assignment_expr();
 
         return astToken{.kind = tokenKind::UnaryExpr,
             .right = std::make_shared<astToken>(value),
-            .op = op};
+            .op = op,
+            .line = value.line};
     }
 
     return parser::parse_assignment_expr();
@@ -476,12 +561,14 @@ astToken parser::parse_comparasion_expr() {
            parser::at().value == ">=" || parser::at().value == "<=" ||
            parser::at().value == "==" || parser::at().value == "!=") {
         std::string op = parser::eat().value;
+        parser::expect(TokenType::Any, "value");
         astToken right = parser::parse_object_expr();
 
         left = astToken{.kind = tokenKind::ComparisonExpr,
             .right = std::make_shared<astToken>(right),
             .left = std::make_shared<astToken>(left),
-            .op = op};
+            .op = op,
+            .line = left.line};
     }
 
     return left;
@@ -497,7 +584,8 @@ astToken parser::parse_power_expr() {
         left = astToken{.kind = tokenKind::BinaryExpr,
             .right = std::make_shared<astToken>(right),
             .left = std::make_shared<astToken>(left),
-            .op = op};
+            .op = op,
+            .line = left.line};
     }
 
     return left;
@@ -513,7 +601,8 @@ astToken parser::parse_division_expr() {
         left = astToken{.kind = tokenKind::BinaryExpr,
             .right = std::make_shared<astToken>(right),
             .left = std::make_shared<astToken>(left),
-            .op = op};
+            .op = op,
+            .line = left.line};
     }
 
     return left;
@@ -529,7 +618,8 @@ astToken parser::parse_multiplicative_expr() {
         left = astToken{.kind = tokenKind::BinaryExpr,
             .right = std::make_shared<astToken>(right),
             .left = std::make_shared<astToken>(left),
-            .op = op};
+            .op = op,
+            .line = left.line};
     }
 
     return left;
@@ -545,7 +635,8 @@ astToken parser::parse_subtraction_expr() {
         left = astToken{.kind = tokenKind::BinaryExpr,
             .right = std::make_shared<astToken>(right),
             .left = std::make_shared<astToken>(left),
-            .op = op};
+            .op = op,
+            .line = left.line};
     }
 
     return left;
@@ -561,7 +652,8 @@ astToken parser::parse_additive_expr() {
         left = astToken{.kind = tokenKind::BinaryExpr,
             .right = std::make_shared<astToken>(right),
             .left = std::make_shared<astToken>(left),
-            .op = op};
+            .op = op,
+            .line = left.line};
     }
 
     return left;
@@ -644,11 +736,11 @@ std::vector<std::shared_ptr<astToken>> parser::parse_arguments() {
 */
 
 astToken parser::parse_call_expr(std::shared_ptr<astToken> caller) {
-    astToken call_expr{
-        .kind = tokenKind::CallExpr,
+    int line = parser::at().line;
+    astToken call_expr{.kind = tokenKind::CallExpr,
         .args = parser::parse_arguments(),
         .caller = caller,
-    };
+        .line = line};
 
     if (parser::at().type == TokenType::OpenParen) {
         call_expr = parser::parse_call_expr(caller);
@@ -668,21 +760,14 @@ astToken parser::parse_member_call_expr() {
     return member;
 }
 
-using property = std::map<std::string,
-    std::variant<std::shared_ptr<astToken>,
-        std::string,
-        float,
-        int,
-        std::vector<std::string>>>;
-
 astToken parser::parse_object_expr() {
     if (parser::at().type != TokenType::OpenBrace) {
         return parser::parse_additive_expr();
     }
-
+    int line = parser::at().line;
     parser::eat();
 
-    std::vector<property> properties;
+    std::vector<map_property> properties;
 
     while (parser::at().type != TokenType::EndOfFile &&
            parser::at().type != TokenType::CloseBrace) {
@@ -691,15 +776,17 @@ astToken parser::parse_object_expr() {
 
         if (parser::at().type == TokenType::Comma) {
             parser::eat();
-            property token{
-                {"key", std::to_string(static_cast<int>(properties.size()))},
-                {"value", key}};
+            map_property token{.key = std::make_shared<astToken>(astToken{
+                                   .kind = tokenKind::NumberLiteral,
+                                   .value = std::to_string(properties.size())}),
+                .value = key};
             properties.push_back(token);
             continue;
         } else if (parser::at().type == TokenType::CloseBrace) {
-            property token{
-                {"key", std::to_string(static_cast<int>(properties.size()))},
-                {"value", key}};
+            map_property token{.key = std::make_shared<astToken>(astToken{
+                                   .kind = tokenKind::NumberLiteral,
+                                   .value = std::to_string(properties.size())}),
+                .value = key};
             properties.push_back(token);
             continue;
         };
@@ -708,7 +795,7 @@ astToken parser::parse_object_expr() {
 
         std::shared_ptr<astToken> value =
             std::make_shared<astToken>(parser::parseStmt());
-        property token{{"key", key.get()->value}, {"value", value}};
+        map_property token{.key = key, .value = value};
 
         properties.push_back(token);
 
@@ -720,47 +807,13 @@ astToken parser::parse_object_expr() {
     parser::expect(TokenType::CloseBrace);
     parser::skip_semi_colon();
 
-    return astToken{
-        .kind = tokenKind::ObjectLiteral,
+    return astToken{.kind = tokenKind::ObjectLiteral,
         .properties = properties,
-    };
+        .line = line};
 }
 
-/*	function this.parse_member_expr()
-        local object = this.parse_unary_expr()
-
-        while this.at().type == "Dot" or this.at().type == "OpenSqrB" do
-            local operator = this.eat().type
-
-            local computed: boolean
-            local property
-
-            if operator == "Dot" then
-                computed = false
-                property = this.parse_unary_expr()
-
-                if property.type ~= "Identifier" then
-                    this.expect("any", "identifier after member expression")
-                end
-            else
-                computed = true
-                property = this.parse_expr()
-
-                this.expect("ClosedSqrB", "] closing member expression")
-            end
-
-            object = {
-                type = "MemberExpr",
-                object = object,
-                property = property,
-                computed = computed,
-            }
-        end
-
-        return object
-    end*/
-
 astToken parser::parse_member_expr() {
+    int line = parser::at().line;
     astToken object = parser::parse_primary_expr();
 
     while (parser::at().type == TokenType::Dot ||
@@ -783,7 +836,8 @@ astToken parser::parse_member_expr() {
         astToken newObject{.kind = tokenKind::MemberExpr,
             .object = std::make_shared<astToken>(object),
             .property = std::make_shared<astToken>(property),
-            .computed = computed};
+            .computed = computed,
+            .line = line};
 
         object = newObject;
     }
@@ -806,23 +860,44 @@ std::string replaceNewlines(const std::string &input) {
 astToken parser::parse_primary_expr() {
     TokenType type = parser::at().type;
     switch (type) {
-    case TokenType::Identifier:
-        return astToken{
-            .kind = tokenKind::Identifier, .value = parser::eat().value};
-    case TokenType::Number:
-        return astToken{
-            .kind = tokenKind::NumberLiteral, .value = parser::eat().value};
-    case TokenType::String:
+    case TokenType::Identifier: {
+        auto token = parser::eat();
+
+        return astToken{.kind = tokenKind::Identifier,
+            .value = token.value,
+            .line = token.line};
+    }
+    case TokenType::Number: {
+        auto token = parser::eat();
+
+        return astToken{.kind = tokenKind::NumberLiteral,
+            .value = token.value,
+            .line = token.line};
+    }
+    case TokenType::String: {
+        auto token = parser::eat();
+
         return astToken{.kind = tokenKind::StringLiteral,
-            .value = replaceNewlines(parser::eat().value)};
+            .value = replaceNewlines(token.value),
+            .line = token.line};
+    }
+    case TokenType::Boolean: {
+        auto token = parser::eat();
+        return astToken{.kind = tokenKind::BooleanLiteral,
+            .value = token.value,
+            .line = token.line};
+    }
     case TokenType::OpenParen: {
         parser::eat();
         astToken value = parser::parseStmt();
         parser::expect(TokenType::CloseParen);
         return value;
     };
-    default:
-        return astToken{
-            .kind = tokenKind::Identifier, .value = parser::eat().value};
+    default: {
+        auto token = parser::eat();
+        return astToken{.kind = tokenKind::Identifier,
+            .value = token.value,
+            .line = token.line};
+    };
     }
 }
