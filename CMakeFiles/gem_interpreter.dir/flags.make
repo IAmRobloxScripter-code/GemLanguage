@@ -6,5 +6,5 @@ CXX_DEFINES =
 
 CXX_INCLUDES = 
 
-CXX_FLAGS = -O3 -DNDEBUG -s -std=gnu++20 -fexceptions
+CXX_FLAGS = -fsanitize=address -g -std=gnu++20 -fexceptions
 

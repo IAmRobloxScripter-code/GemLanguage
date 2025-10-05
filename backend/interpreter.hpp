@@ -21,11 +21,13 @@ enum class gem_type {
     gem_function,
     gem_temp_closure,
     gem_null,
+    gem_any // this will be used just for expecting types
 };
 
 enum class gem_function_type {
     native_function,
     default_function,
+    metadata_function,
 };
 
 static std::string gem_type_tostring(gem_type value_type) {
@@ -40,6 +42,8 @@ static std::string gem_type_tostring(gem_type value_type) {
         return "table";
     case gem_type::gem_function:
         return "function";
+    case gem_type::gem_any:
+        return "any";
     default:
         return "null";
     }
@@ -182,7 +186,7 @@ struct function {
     std::vector<std::string> params;
     std::vector<std::shared_ptr<astToken>> body;
     scope *declaration_enviroment;
-    gem_value *(*caller)(std::vector<gem_value *>, scope* env);
+    gem_value *(*caller)(std::vector<gem_value *>, scope *env, u_int64_t line);
 };
 
 struct temp_closure {
@@ -200,6 +204,8 @@ struct gem_value {
         temp_closure *closure;
     };
     bool marked = false;
+
+    gem_table *metadata;
 
     gem_value() {};
 
@@ -226,6 +232,7 @@ void garbage_collect();
 inline void push_heap_closures(scope *closure) {
     gem_heap_closures.push_back(closure);
     allocations++;
+
     if (allocations > MAX_ALLOCATIONS) {
         allocations = 0;
         garbage_collect();
@@ -246,6 +253,7 @@ inline gem_value *make_value(gem_type value_type, bool marked = false) {
     gem_value *value = new gem_value{};
     value->marked = marked;
     value->value_type = value_type;
+
     if (value_type == gem_type::gem_string) {
         new (&value->string) std::string();
     }

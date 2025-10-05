@@ -121,7 +121,13 @@ an_ptr interpret_call_expr(astToken &node, scope *env) {
     an_ptr return_result = std::make_unique<abstract_node>();
 
     if (fn->value->func->function_type == gem_function_type::native_function) {
-        gem_value *result = fn->value->func->caller(args, env);
+        gem_value *result = fn->value->func->caller(args, env, node.line);
+        return_result->value =
+            result != nullptr ? result : env->get_variable("null");
+    } else if (fn->value->func->function_type ==
+               gem_function_type::metadata_function) {
+        args.insert(args.begin(), interpret(*node.caller->object, env)->value);
+        gem_value *result = fn->value->func->caller(args, env, node.line);
         return_result->value =
             result != nullptr ? result : env->get_variable("null");
     } else {
@@ -150,14 +156,18 @@ an_ptr interpret_while_loop(astToken &node, scope *env) {
     scope *scope_env = new scope;
     scope_env->file_name = env->file_name;
     scope_env->parent_env = env;
+    scope_env->marked = true;
 
     auto closure = new temp_closure;
     closure->enviroment = scope_env;
 
-    auto closure_object = make_value(gem_type::gem_temp_closure, false);
+    auto closure_object = make_value(gem_type::gem_temp_closure, true);
     closure_object->closure = closure;
 
-    env->make_variable("", closure_object);
+    std::stringstream ss;
+    ss << closure_object;
+
+    root->make_variable(ss.str(), closure_object);
 
     while (is_truthy(interpret(*node.left, scope_env)->value)) {
         an_ptr return_result = interpret_body(node.body, scope_env);
@@ -186,13 +196,16 @@ an_ptr interpret_for_loop(astToken &node, scope *env) {
     scope_env->file_name = env->file_name;
     scope_env->parent_env = env;
 
-    auto closure = new temp_closure;
+    temp_closure *closure = new temp_closure;
     closure->enviroment = scope_env;
 
-    auto closure_object = make_value(gem_type::gem_temp_closure, false);
+    auto closure_object = make_value(gem_type::gem_temp_closure, true);
     closure_object->closure = closure;
 
-    env->make_variable("", closure_object);
+    std::stringstream ss;
+    ss << closure_object;
+
+    env->make_variable(ss.str(), closure_object);
 
     auto iterator = node.iterator;
 
@@ -264,7 +277,6 @@ an_ptr interpret_for_loop(astToken &node, scope *env) {
         }
 
         while (start_value->number < end_value->number) {
-
             an_ptr return_result = interpret_body(node.body, scope_env);
 
             if (dynamic_cast<return_literal *>(return_result.get())) {
@@ -368,7 +380,7 @@ an_ptr interpret_return(astToken &node, scope *env) {
 std::unique_ptr<number_literal> interpret_numeric_literal(
     astToken &node, scope *env) {
     std::unique_ptr<number_literal> value = std::make_unique<number_literal>();
-    value->value = make_value(gem_type::gem_number, false);
+    value->value = make_value(gem_type::gem_number, true);
     value->value->number = std::stod(node.value);
     return value;
 }
@@ -376,8 +388,10 @@ std::unique_ptr<number_literal> interpret_numeric_literal(
 std::unique_ptr<string_literal> interpret_string_literal(
     astToken &node, scope *env) {
     std::unique_ptr<string_literal> value = std::make_unique<string_literal>();
-    value->value = make_value(gem_type::gem_string, false);
+    value->value = make_value(gem_type::gem_string, true);
     value->value->string = node.value;
+    value->value->metadata = root->get_variable("string")->table;
+
     return value;
 }
 
@@ -385,7 +399,7 @@ std::unique_ptr<boolean_literal> interpret_boolean_literal(
     astToken &node, scope *env) {
     std::unique_ptr<boolean_literal> value =
         std::make_unique<boolean_literal>();
-    value->value = make_value(gem_type::gem_bool, false);
+    value->value = make_value(gem_type::gem_bool, true);
     value->value->boolean = (node.value == "false" ? false : true);
     return value;
 }
@@ -590,8 +604,19 @@ an_ptr interpret_member_expression(astToken &node, scope *env) {
         } else {
             gem_value *at_position_value =
                 obj->value->table->hash_at(ident->value);
-            if (!at_position_value) {
-                value->value = env->get_variable("null");
+            if (at_position_value == nullptr) {
+                if (obj->value->metadata == nullptr) {
+                    error(error_type::runtime_error,
+                        "",
+                        env->file_name,
+                        node.line,
+                        "Attempted to index metadata of a non-metadata value!");
+                    exit(1);
+                }
+                gem_value *meta = obj->value->metadata->hash_at(ident->value);
+
+                value->value =
+                    meta == nullptr ? env->get_variable("null") : meta;
             } else {
                 value->value = at_position_value;
             }
@@ -613,9 +638,23 @@ an_ptr interpret_member_expression(astToken &node, scope *env) {
         auto key = make_value(gem_type::gem_string, true);
         key->string = ident;
 
-        gem_value* returned = obj->value->table->hash_at(key);
+        gem_value *returned = obj->value->table->hash_at(key);
 
-        value->value = returned == nullptr ? env->get_variable("null") : returned;
+        if (returned == nullptr) {
+            if (obj->value->metadata == nullptr) {
+                error(error_type::runtime_error,
+                    "",
+                    env->file_name,
+                    node.line,
+                    "Attempted to index metadata of a non-metadata value!");
+                exit(1);
+            }
+            gem_value *meta = obj->value->metadata->hash_at(key);
+
+            value->value = meta == nullptr ? env->get_variable("null") : meta;
+        } else {
+            value->value = returned;
+        }
     }
 
     return value;
@@ -627,6 +666,8 @@ an_ptr interpret_table_expression(astToken &node, scope *env) {
 
     gem_value *object = make_value(gem_type::gem_table);
     object->table = table;
+
+    object->metadata = root->get_variable("table")->table;
 
     for (auto &property : node.properties) {
         gem_value *key = nullptr;
@@ -740,6 +781,7 @@ void mark_scope(scope *env) {
     if (!env || env->marked)
         return;
     env->marked = true;
+
     for (auto &value : env->stack) {
         gem_value *second = value.second;
 
@@ -749,6 +791,7 @@ void mark_scope(scope *env) {
 
 void garbage_collect() {
     mark_scope(root);
+
     for (auto it = gem_heap_closures.begin(); it != gem_heap_closures.end();) {
         scope *env = *it;
         if (!env->marked) {
@@ -763,7 +806,7 @@ void garbage_collect() {
     for (auto it = gem_heap_objects.begin(); it != gem_heap_objects.end();) {
         gem_value *value = *it;
 
-        if (value->marked == false) {
+        if (!value->marked) {
             delete value;
             it = gem_heap_objects.erase(it);
         } else {

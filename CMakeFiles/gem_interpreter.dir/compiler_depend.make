@@ -1011,18 +1011,25 @@ CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o: interpreter_main.cpp \
   backend/interpreter.hpp \
   backend/lexer.hpp \
   backend/parser.hpp \
+  backend/debugger.hpp \
   backend/std/values.hpp \
   /usr/include/alloca.h \
   /usr/include/asm-generic/bitsperlong.h \
   /usr/include/asm-generic/errno-base.h \
   /usr/include/asm-generic/errno.h \
   /usr/include/asm-generic/int-ll64.h \
+  /usr/include/asm-generic/ioctl.h \
+  /usr/include/asm-generic/ioctls.h \
   /usr/include/asm-generic/posix_types.h \
+  /usr/include/asm-generic/sockios.h \
   /usr/include/asm-generic/types.h \
   /usr/include/asm/bitsperlong.h \
   /usr/include/asm/errno.h \
+  /usr/include/asm/ioctl.h \
+  /usr/include/asm/ioctls.h \
   /usr/include/asm/posix_types.h \
   /usr/include/asm/posix_types_64.h \
+  /usr/include/asm/sockios.h \
   /usr/include/asm/types.h \
   /usr/include/asm/unistd.h \
   /usr/include/asm/unistd_64.h \
@@ -1042,6 +1049,8 @@ CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o: interpreter_main.cpp \
   /usr/include/bits/fp-logb.h \
   /usr/include/bits/getopt_core.h \
   /usr/include/bits/getopt_posix.h \
+  /usr/include/bits/ioctl-types.h \
+  /usr/include/bits/ioctls.h \
   /usr/include/bits/iscanonical.h \
   /usr/include/bits/libc-header-start.h \
   /usr/include/bits/libm-simd-decl-stubs.h \
@@ -1146,6 +1155,7 @@ CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o: interpreter_main.cpp \
   /usr/include/c++/15.2.1/bits/exception.h \
   /usr/include/c++/15.2.1/bits/exception_defines.h \
   /usr/include/c++/15.2.1/bits/exception_ptr.h \
+  /usr/include/c++/15.2.1/bits/formatfwd.h \
   /usr/include/c++/15.2.1/bits/fs_dir.h \
   /usr/include/c++/15.2.1/bits/fs_fwd.h \
   /usr/include/c++/15.2.1/bits/fs_ops.h \
@@ -1227,6 +1237,8 @@ CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o: interpreter_main.cpp \
   /usr/include/c++/15.2.1/bits/string_view.tcc \
   /usr/include/c++/15.2.1/bits/stringfwd.h \
   /usr/include/c++/15.2.1/bits/this_thread_sleep.h \
+  /usr/include/c++/15.2.1/bits/unicode-data.h \
+  /usr/include/c++/15.2.1/bits/unicode.h \
   /usr/include/c++/15.2.1/bits/uniform_int_dist.h \
   /usr/include/c++/15.2.1/bits/unique_ptr.h \
   /usr/include/c++/15.2.1/bits/unordered_map.h \
@@ -1238,6 +1250,7 @@ CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o: interpreter_main.cpp \
   /usr/include/c++/15.2.1/cassert \
   /usr/include/c++/15.2.1/cctype \
   /usr/include/c++/15.2.1/cerrno \
+  /usr/include/c++/15.2.1/charconv \
   /usr/include/c++/15.2.1/climits \
   /usr/include/c++/15.2.1/clocale \
   /usr/include/c++/15.2.1/cmath \
@@ -1264,6 +1277,7 @@ CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o: interpreter_main.cpp \
   /usr/include/c++/15.2.1/ext/string_conversions.h \
   /usr/include/c++/15.2.1/ext/type_traits.h \
   /usr/include/c++/15.2.1/filesystem \
+  /usr/include/c++/15.2.1/format \
   /usr/include/c++/15.2.1/fstream \
   /usr/include/c++/15.2.1/functional \
   /usr/include/c++/15.2.1/initializer_list \
@@ -1286,6 +1300,7 @@ CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o: interpreter_main.cpp \
   /usr/include/c++/15.2.1/pstl/pstl_config.h \
   /usr/include/c++/15.2.1/ratio \
   /usr/include/c++/15.2.1/semaphore \
+  /usr/include/c++/15.2.1/span \
   /usr/include/c++/15.2.1/sstream \
   /usr/include/c++/15.2.1/stdexcept \
   /usr/include/c++/15.2.1/stop_token \
@@ -1339,9 +1354,11 @@ CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o: interpreter_main.cpp \
   /usr/include/limits.h \
   /usr/include/linux/close_range.h \
   /usr/include/linux/errno.h \
+  /usr/include/linux/ioctl.h \
   /usr/include/linux/limits.h \
   /usr/include/linux/posix_types.h \
   /usr/include/linux/sched/types.h \
+  /usr/include/linux/sockios.h \
   /usr/include/linux/stddef.h \
   /usr/include/linux/types.h \
   /usr/include/locale.h \
@@ -1356,10 +1373,12 @@ CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o: interpreter_main.cpp \
   /usr/include/string.h \
   /usr/include/strings.h \
   /usr/include/sys/cdefs.h \
+  /usr/include/sys/ioctl.h \
   /usr/include/sys/select.h \
   /usr/include/sys/single_threaded.h \
   /usr/include/sys/syscall.h \
   /usr/include/sys/time.h \
+  /usr/include/sys/ttydefaults.h \
   /usr/include/sys/types.h \
   /usr/include/syscall.h \
   /usr/include/time.h \

@@ -449,14 +449,19 @@ astToken parser::parse_function_declaration() {
         params.push_back(value.get()->value);
     }
 
-    parser::expect(TokenType::OpenBrace);
     std::vector<std::shared_ptr<astToken>> body;
+    if (parser::at().type == TokenType::OpenBrace) {
+        parser::expect(TokenType::OpenBrace);
 
-    while (parser::at().type != TokenType::EndOfFile &&
-           parser::at().type != TokenType::CloseBrace) {
+        while (parser::at().type != TokenType::EndOfFile &&
+               parser::at().type != TokenType::CloseBrace) {
+            body.push_back(std::make_shared<astToken>(parser::parseStmt()));
+        }
+        parser::expect(TokenType::CloseBrace);
+    } else {
+        parser::expect(TokenType::Any);
         body.push_back(std::make_shared<astToken>(parser::parseStmt()));
     }
-    parser::expect(TokenType::CloseBrace);
 
     return astToken{.kind = tokenKind::FunctionDeclaration,
         .body = body,
