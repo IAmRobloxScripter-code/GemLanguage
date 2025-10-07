@@ -7,6 +7,13 @@
 #include <iostream>
 #include <memory>
 
+void scope_erase(scope *env, scope *scope_env) {
+    auto it = std::find(env->closures.begin(), env->closures.end(), scope_env);
+    if (it != env->closures.end()) {
+        env->closures.erase(it);
+    }
+}
+
 void trace_back_me_rec(std::string &trace, astToken &node) {
     if (node.object->kind == tokenKind::MemberExpr) {
         trace_back_me_rec(trace, *node.object);
@@ -78,7 +85,7 @@ an_ptr interpret_body(std::vector<std::shared_ptr<astToken>> body, scope *env) {
 }
 
 an_ptr interpret_function_declaration(astToken &node, scope *env) {
-    gem_value *function_value = make_value(gem_type::gem_function, false);
+    gem_value *function_value = make_value(gem_type::gem_function, true, env);
     function *func = new function;
     func->function_type = gem_function_type::default_function;
     func->body = node.body;
@@ -131,10 +138,14 @@ an_ptr interpret_call_expr(astToken &node, scope *env) {
         return_result->value =
             result != nullptr ? result : env->get_variable("null");
     } else {
-        scope *scope_env = new scope;
+        scope *scope_env = new scope(false);
         scope_env->file_name =
             fn->value->func->declaration_enviroment->file_name;
         scope_env->parent_env = fn->value->func->declaration_enviroment;
+        mark_scope(scope_env);
+        push_heap_closures(scope_env);
+
+        fn->value->func->declaration_enviroment->closures.push_back(scope_env);
 
         int param_count = fn->value->func->params.size();
 
@@ -147,32 +158,27 @@ an_ptr interpret_call_expr(astToken &node, scope *env) {
         an_ptr result = interpret_body(fn->value->func->body, scope_env);
         return_result->value =
             result != nullptr ? result->value : env->get_variable("null");
+        scope_erase(fn->value->func->declaration_enviroment, scope_env);
     }
 
     return return_result;
 }
 
 an_ptr interpret_while_loop(astToken &node, scope *env) {
-    scope *scope_env = new scope;
+    scope *scope_env = new scope(false);
     scope_env->file_name = env->file_name;
     scope_env->parent_env = env;
-    scope_env->marked = true;
+    mark_scope(scope_env);
+    push_heap_closures(scope_env);
 
-    auto closure = new temp_closure;
-    closure->enviroment = scope_env;
-
-    auto closure_object = make_value(gem_type::gem_temp_closure, true);
-    closure_object->closure = closure;
-
-    std::stringstream ss;
-    ss << closure_object;
-
-    root->make_variable(ss.str(), closure_object);
+    env->closures.push_back(scope_env);
 
     while (is_truthy(interpret(*node.left, scope_env)->value)) {
         an_ptr return_result = interpret_body(node.body, scope_env);
 
         if (dynamic_cast<return_literal *>(return_result.get())) {
+            scope_erase(env, scope_env);
+
             return std::move(return_result);
         }
 
@@ -188,24 +194,19 @@ an_ptr interpret_while_loop(astToken &node, scope *env) {
     auto value = std::make_unique<abstract_node>();
     value->value = env->get_variable("null");
 
+    scope_erase(env, scope_env);
+
     return value;
 }
 
 an_ptr interpret_for_loop(astToken &node, scope *env) {
-    scope *scope_env = new scope;
+    scope *scope_env = new scope(false);
     scope_env->file_name = env->file_name;
     scope_env->parent_env = env;
+    mark_scope(scope_env);
+    push_heap_closures(scope_env);
 
-    temp_closure *closure = new temp_closure;
-    closure->enviroment = scope_env;
-
-    auto closure_object = make_value(gem_type::gem_temp_closure, true);
-    closure_object->closure = closure;
-
-    std::stringstream ss;
-    ss << closure_object;
-
-    env->make_variable(ss.str(), closure_object);
+    env->closures.push_back(scope_env);
 
     auto iterator = node.iterator;
 
@@ -240,11 +241,29 @@ an_ptr interpret_for_loop(astToken &node, scope *env) {
                 "Missing variable in for loop declaration!");
             exit(1);
         }
+        std::stringstream sds;
 
         gem_value *start_value = scope_env->make_variable(
             node.params[0], interpret(*start, scope_env)->value);
+
+        sds << start_value;
+        scope_env->make_variable(sds.str(), start_value);
+        sds.str("");
+        sds.clear();
+        
         gem_value *end_value = interpret(*end, scope_env)->value;
+
+        sds << end_value;
+        scope_env->make_variable(sds.str(), end_value);
+        sds.str("");
+        sds.clear();
+
         gem_value *step_value = interpret(*step, scope_env)->value;
+
+        sds << step_value;
+        scope_env->make_variable(sds.str(), step_value);
+        sds.str("");
+        sds.clear();
 
         if (start_value->value_type != gem_type::gem_number) {
             error(error_type::runtime_error,
@@ -280,6 +299,8 @@ an_ptr interpret_for_loop(astToken &node, scope *env) {
             an_ptr return_result = interpret_body(node.body, scope_env);
 
             if (dynamic_cast<return_literal *>(return_result.get())) {
+                scope_erase(env, scope_env);
+
                 return std::move(return_result);
             }
 
@@ -298,6 +319,7 @@ an_ptr interpret_for_loop(astToken &node, scope *env) {
 
     auto value = std::make_unique<abstract_node>();
     value->value = env->get_variable("null");
+    scope_erase(env, scope_env);
 
     return value;
 }
@@ -373,6 +395,7 @@ an_ptr interpret_return(astToken &node, scope *env) {
     std::unique_ptr<return_literal> return_token =
         std::make_unique<return_literal>();
     return_token->value = interpret(*node.right, env)->value;
+    mark_value(return_token->value);
 
     return return_token;
 }
@@ -380,7 +403,7 @@ an_ptr interpret_return(astToken &node, scope *env) {
 std::unique_ptr<number_literal> interpret_numeric_literal(
     astToken &node, scope *env) {
     std::unique_ptr<number_literal> value = std::make_unique<number_literal>();
-    value->value = make_value(gem_type::gem_number, true);
+    value->value = make_value(gem_type::gem_number, true, env);
     value->value->number = std::stod(node.value);
     return value;
 }
@@ -388,7 +411,7 @@ std::unique_ptr<number_literal> interpret_numeric_literal(
 std::unique_ptr<string_literal> interpret_string_literal(
     astToken &node, scope *env) {
     std::unique_ptr<string_literal> value = std::make_unique<string_literal>();
-    value->value = make_value(gem_type::gem_string, true);
+    value->value = make_value(gem_type::gem_string, true, env);
     value->value->string = node.value;
     value->value->metadata = root->get_variable("string")->table;
 
@@ -399,13 +422,14 @@ std::unique_ptr<boolean_literal> interpret_boolean_literal(
     astToken &node, scope *env) {
     std::unique_ptr<boolean_literal> value =
         std::make_unique<boolean_literal>();
-    value->value = make_value(gem_type::gem_bool, true);
+    value->value = make_value(gem_type::gem_bool, true, env);
     value->value->boolean = (node.value == "false" ? false : true);
     return value;
 }
 
-gem_value *number_operation(an_ptr &left, an_ptr &right, std::string op) {
-    gem_value *value = make_value(gem_type::gem_number, false);
+gem_value *number_operation(
+    an_ptr &left, an_ptr &right, std::string op, scope *env) {
+    gem_value *value = make_value(gem_type::gem_number, true, env);
 
     if (op == "+")
         value->number = (left->value->number) + (right->value->number);
@@ -431,14 +455,14 @@ an_ptr interpret_binary_operation(astToken &node, scope *env) {
         right->value->value_type == gem_type::gem_number) {
         std::unique_ptr<number_literal> value =
             std::make_unique<number_literal>();
-        value->value = number_operation(left, right, node.op);
+        value->value = number_operation(left, right, node.op, env);
         return value;
     } else if (left->value->value_type == gem_type::gem_string &&
                right->value->value_type == gem_type::gem_string &&
                node.op == "+") {
         std::unique_ptr<string_literal> value =
             std::make_unique<string_literal>();
-        value->value = make_value(gem_type::gem_string, 0);
+        value->value = make_value(gem_type::gem_string, true, env);
         new (&value->value->string) std::string();
 
         value->value->string = (left->value->string) + (right->value->string);
@@ -635,7 +659,7 @@ an_ptr interpret_member_expression(astToken &node, scope *env) {
             exit(1);
         }
 
-        auto key = make_value(gem_type::gem_string, true);
+        auto key = make_value(gem_type::gem_string, true, env);
         key->string = ident;
 
         gem_value *returned = obj->value->table->hash_at(key);
@@ -664,7 +688,7 @@ an_ptr interpret_table_expression(astToken &node, scope *env) {
     an_ptr value = std::make_unique<abstract_node>();
     gem_table *table = new gem_table;
 
-    gem_value *object = make_value(gem_type::gem_table);
+    gem_value *object = make_value(gem_type::gem_table, true, env);
     object->table = table;
 
     object->metadata = root->get_variable("table")->table;
@@ -673,7 +697,7 @@ an_ptr interpret_table_expression(astToken &node, scope *env) {
         gem_value *key = nullptr;
 
         if (property.key->kind == tokenKind::Identifier) {
-            key = make_value(gem_type::gem_string, true);
+            key = make_value(gem_type::gem_string, true, env);
 
             key->string = property.key->value;
         } else {
@@ -755,10 +779,7 @@ void mark_value(gem_value *value) {
 
     if (value->value_type == gem_type::gem_function && value->func) {
         mark_scope(value->func->declaration_enviroment);
-    };
-
-    if (value->value_type == gem_type::gem_temp_closure && value->closure) {
-        mark_scope(value->closure->enviroment);
+        return;
     }
 
     if (value->value_type == gem_type::gem_table && value->table) {
@@ -775,6 +796,8 @@ void mark_value(gem_value *value) {
             }
         }
     }
+
+    mark_scope(value->declaration_env);
 }
 
 void mark_scope(scope *env) {
@@ -787,15 +810,23 @@ void mark_scope(scope *env) {
 
         mark_value(second);
     }
+
+    for (auto &value : env->closures) {
+        mark_scope(value);
+    }
 }
 
 void garbage_collect() {
     mark_scope(root);
 
+    int closure_deleted = 0;
+    int objects_deleted = 0;
+
     for (auto it = gem_heap_closures.begin(); it != gem_heap_closures.end();) {
         scope *env = *it;
         if (!env->marked) {
             delete env;
+            closure_deleted++;
             it = gem_heap_closures.erase(it);
         } else {
             env->marked = false;
@@ -808,12 +839,19 @@ void garbage_collect() {
 
         if (!value->marked) {
             delete value;
+            objects_deleted++;
             it = gem_heap_objects.erase(it);
         } else {
             value->marked = false;
             ++it;
         }
     }
+
+    std::cout << "There is " << gem_heap_objects.size() << " objects and "
+              << gem_heap_closures.size() << " closures." << std::endl;
+
+    std::cout << "Deleted " << objects_deleted << " objects and "
+              << closure_deleted << " closures." << std::endl;
 }
 
 std::string gem_hash_tostring(gem_value *value) {

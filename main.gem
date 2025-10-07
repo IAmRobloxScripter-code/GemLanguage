@@ -1,5 +1,17 @@
-var x = 0
+fn foo(x) {
+   return fn() {
+      return x + 40
+   }
+}
 
-for (index) in (0, 255) {
-   x += 2
+var bcd = {}
+
+for (index) in (0, 100) {
+   var x = foo(50);
+   bcd.push_back(x);
+}
+
+for (index) in (0, 100) {
+   console.out(bcd[index], "-", index)
+  ## bcd[index]()
 }

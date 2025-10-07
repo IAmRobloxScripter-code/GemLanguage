@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 project(Gem-C)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_FLAGS_RELEASE "-fsanitize=address -g")
+set(CMAKE_CXX_FLAGS_RELEASE "-g")
 
 option(BUILD_COMPILER "Build the compiler executable" OFF)
 option(BUILD_INTERPRETER "Build the interpreter executable" ON)

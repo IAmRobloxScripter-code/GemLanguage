@@ -121,6 +121,7 @@ inline gem_value *define_function_pointer_value(gem_value *(*caller)(
 
 inline gem_value *define_console() {
     gem_value *console_value = make_value(gem_type::gem_table, true);
+
     gem_table *methods = new gem_table;
 
     methods->hash_make(define_string_value("out"),

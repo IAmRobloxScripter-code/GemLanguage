@@ -19,7 +19,6 @@ enum class gem_type {
     gem_bool,
     gem_table,
     gem_function,
-    gem_temp_closure,
     gem_null,
     gem_any // this will be used just for expecting types
 };
@@ -185,12 +184,9 @@ struct function {
     gem_function_type function_type;
     std::vector<std::string> params;
     std::vector<std::shared_ptr<astToken>> body;
-    scope *declaration_enviroment;
-    gem_value *(*caller)(std::vector<gem_value *>, scope *env, u_int64_t line);
-};
-
-struct temp_closure {
-    scope *enviroment;
+    scope *declaration_enviroment = nullptr;
+    gem_value *(*caller)(
+        std::vector<gem_value *>, scope *env, u_int64_t line) = nullptr;
 };
 
 struct gem_value {
@@ -201,11 +197,11 @@ struct gem_value {
         bool boolean;
         gem_table *table;
         function *func;
-        temp_closure *closure;
     };
     bool marked = false;
+    scope *declaration_env = nullptr;
 
-    gem_table *metadata;
+    gem_table *metadata = nullptr;
 
     gem_value() {};
 
@@ -216,8 +212,6 @@ struct gem_value {
             delete func;
         else if (value_type == gem_type::gem_table)
             delete table;
-        else if (value_type == gem_type::gem_temp_closure)
-            delete closure;
     };
 };
 
@@ -249,10 +243,12 @@ inline void push_heap_objects(gem_value *object) {
     }
 };
 
-inline gem_value *make_value(gem_type value_type, bool marked = false) {
+inline gem_value *make_value(
+    gem_type value_type, bool marked = false, scope *env = nullptr) {
     gem_value *value = new gem_value{};
     value->marked = marked;
     value->value_type = value_type;
+    value->declaration_env = env;
 
     if (value_type == gem_type::gem_string) {
         new (&value->string) std::string();
@@ -267,7 +263,9 @@ class scope {
     std::string file_name;
     scope *parent_env = nullptr;
     std::unordered_map<std::string, gem_value *> stack;
+    std::vector<scope*> closures;
     bool marked = false;
+    bool alive = false;
 
     scope(bool should_allocate = true) {
         if (should_allocate == true) {

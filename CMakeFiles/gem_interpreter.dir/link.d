@@ -2,8 +2,6 @@ gem_interpreter: \
   /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/../../../../lib/Scrt1.o \
   /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/../../../../lib/crti.o \
   /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/crtbeginS.o \
-  /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/../../../../lib/libasan_preinit.o \
-  /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/../../../../lib/libasan.so \
   CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o \
   CMakeFiles/gem_interpreter.dir/backend/parser.cpp.o \
   CMakeFiles/gem_interpreter.dir/backend/lexer.cpp.o \
@@ -41,10 +39,6 @@ gem_interpreter: \
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/../../../../lib/crti.o:
 
 /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/crtbeginS.o:
-
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/../../../../lib/libasan_preinit.o:
-
-/usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/../../../../lib/libasan.so:
 
 CMakeFiles/gem_interpreter.dir/interpreter_main.cpp.o:
 
